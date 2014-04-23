@@ -65,7 +65,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
 {
     if (ev == MG_REQUEST) 
     {
-        //mg_printf_data(conn, "Requested URI is [%s]", conn->uri);
+      std::cout << conn->uri << std::endl;
 
       wkhtmltopdf::settings::ImageGlobal settings;
       settings.in = "/tmp/test.html";
