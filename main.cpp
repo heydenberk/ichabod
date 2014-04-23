@@ -61,11 +61,12 @@ int main2(int argc, char *argv[])
 #include <string.h>
 #include "mongoose.h"
 
-static int ev_handler(struct mg_connection *conn, enum mg_event ev) 
+static int rasterize(struct mg_connection* conn )
 {
-    if (ev == MG_REQUEST) 
-    {
-        //mg_printf_data(conn, "Requested URI is [%s]", conn->uri);
+    char var1[500], var2[500];
+    mg_get_var(conn, "input_1", var1, sizeof(var1));
+    mg_get_var(conn, "input_2", var2, sizeof(var2));
+
 
       wkhtmltopdf::settings::ImageGlobal settings;
       settings.in = "/tmp/test.html";
@@ -105,14 +106,25 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
           }
       }
       std::cout << "done." << std::endl;
+      return MG_TRUE;
+}
 
-      return MG_TRUE;
-  } 
-  else if (ev == MG_AUTH) 
-  {
-      return MG_TRUE;
-  }
-  return MG_FALSE;
+static int ev_handler(struct mg_connection *conn, enum mg_event ev) 
+{
+    if (ev == MG_REQUEST) 
+    {
+        if (strcmp(conn->uri, "/rasterize") == 0) 
+        {
+            return rasterize(conn);
+        }
+        
+        return MG_FALSE;
+    } 
+    else if (ev == MG_AUTH) 
+    {
+        return MG_TRUE;
+    }
+    return MG_FALSE;
 }
 
 int main(int argc, char *argv[])
@@ -147,16 +159,16 @@ int main(int argc, char *argv[])
     }
 
 
-  struct mg_server *server = mg_create_server(NULL, ev_handler);
+    struct mg_server *server = mg_create_server(NULL, ev_handler);
 
-  mg_set_option(server, "listening_port", QString::number(port).toLocal8Bit().constData());
+    mg_set_option(server, "listening_port", QString::number(port).toLocal8Bit().constData());
 
-  printf("Starting on port %s\n", mg_get_option(server, "listening_port"));
-  for (;;) {
-      mg_poll_server(server, 1000);
-  }
-
-  mg_destroy_server(&server);
-
-  return 0;
+    printf("Starting on port %s\n", mg_get_option(server, "listening_port"));
+    for (;;) {
+        mg_poll_server(server, 1000);
+    }
+    
+    mg_destroy_server(&server);
+    
+    return 0;
 }

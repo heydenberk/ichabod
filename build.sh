@@ -23,4 +23,4 @@ pushd wkhtmltopdf/static-build/centos
 popd
 
 wkhtmltopdf/static-build/centos/qt/bin/qmake ichabod.pro
-#make
+make
