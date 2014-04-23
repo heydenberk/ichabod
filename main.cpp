@@ -75,6 +75,7 @@ static int rasterize(struct mg_connection* conn )
       settings.out = "/tmp/out.png";
       settings.screenWidth = 800;
       settings.screenHeight = 600;
+      settings.evalJs = "1+1";
 
       wkhtmltopdf::ImageConverter converter(settings);
       QObject::connect(&converter, SIGNAL(checkboxSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxSvg(const QString &)));
