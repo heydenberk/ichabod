@@ -3,4 +3,4 @@
 	url = https://github.com/cesanta/mongoose.git
 [submodule "wkhtmltopdf"]
 	path = wkhtmltopdf
-	url = https://github.com/wkhtmltopdf/wkhtmltopdf.git
+	url = https://github.com/moseymosey/wkhtmltopdf.git

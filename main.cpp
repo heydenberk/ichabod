@@ -75,6 +75,9 @@ static int rasterize(struct mg_connection* conn )
       settings.out = "/tmp/out.png";
       settings.screenWidth = 800;
       settings.screenHeight = 600;
+      QList<QString> l;
+      l.append("1+1");
+      settings.loadPage.runScript = l;
 
       wkhtmltopdf::ImageConverter converter(settings);
       QObject::connect(&converter, SIGNAL(checkboxSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxSvg(const QString &)));
@@ -103,6 +106,8 @@ static int rasterize(struct mg_connection* conn )
               QImage img(settings.out, settings.fmt.toLocal8Bit().constData());
               std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
 //std::cout << "         html: " << m_postMap["html"].toLocal8Bit().constData() << std::endl;
+              std::cout << " script result: " << converter.scriptResult().toLocal8Bit().constData() << std::endl;
+              
           }
       }
       std::cout << "done." << std::endl;
