@@ -1,0 +1,6 @@
+[submodule "mongoose"]
+	path = mongoose
+	url = https://github.com/cesanta/mongoose
+[submodule "wkhtmltopdf"]
+	path = wkhtmltopdf
+	url = https://github.com/wkhtmltopdf/wkhtmltopdf.git
