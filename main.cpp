@@ -65,7 +65,14 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
 {
     if (ev == MG_REQUEST) 
     {
-      std::cout << conn->uri << std::endl;
+
+      QStringList pathParts = QString(conn->uri).split("/", QString::SkipEmptyParts);
+      QString path = pathParts[pathParts.size() - 1];
+      if (path == "rasterize") {
+        std::count << "rasterize" << std::endl;
+      } else if (path == "evaluate") {
+        std::count << "evaluate" << std::endl;
+      }
 
       wkhtmltopdf::settings::ImageGlobal settings;
       settings.in = "/tmp/test.html";
