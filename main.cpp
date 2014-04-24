@@ -1,66 +1,27 @@
+#include <iostream>
+
 #include <QApplication>
 #include <QtCore>
-
-#include <iostream>
-#include <wkhtmltox/imageconverter.hh>
-
-#include <QDateTime>
-#include <QHttpRequestHeader>
-#include <QUrl>
-#include <iostream>
-#include "progressfeedback.hh"
-#include <QApplication>
-#include <QWebFrame>
-#include <wkhtmltox/imagesettings.hh>
-#include <wkhtmltox/utilities.hh>
 #include <QTemporaryFile>
 #include <QTextStream>
-#include <QTcpSocket>
 #include <QImage>
-#include <QBuffer>
-#include <QFontDatabase>
 #include <QFileInfo>
 
-/*
-int main2(int argc, char *argv[])
-{
-    
-    bool gui = true;
-    
-    QApplication app(argc, argv, gui);
+#include "progressfeedback.hh"
+#include <wkhtmltox/imagesettings.hh>
+#include <wkhtmltox/utilities.hh>
+#include <wkhtmltox/imageconverter.hh>
 
-    QStringList args = app.arguments();
-    QRegExp rxArgPort("--port=([0-9]{1,})");
-    QRegExp rxVerbose("--verbosity=([0-2])");
-
-    int verbosity = 0;
-    int port = 9090;
-    for (int i = 1; i < args.size(); ++i) {
-        if (rxArgPort.indexIn(args.at(i)) != -1 )
-        {
-            port =  rxArgPort.cap(1).toInt();
-        }
-        else if (rxVerbose.indexIn(args.at(i)) != 1 ) 
-        {
-            verbosity = rxVerbose.cap(1).toInt();
-        }
-        else 
-        {
-            std::cerr << "Uknown arg:" << args.at(i).toLocal8Bit().constData() << std::endl;
-            app.exit();
-            return -1;
-        }
-    }
-    Server server(port, verbosity);
-
-    return app.exec();
-}
-*/
-
-#include <stdio.h>
-#include <string.h>
 #include "mongoose.h"
 
+static int send_error(struct mg_connection* conn, const QString& err)
+{
+    std::cerr << "ERROR:" << err.toLocal8Bit().constData() << std::endl;
+    mg_send_status(conn, 500);
+    mg_send_header(conn, "X-Error-Message", err.toLocal8Bit().constData());
+    mg_printf_data(conn, err.toLocal8Bit().constData());
+    return MG_TRUE;
+}
 
 static int ev_handler(struct mg_connection *conn, enum mg_event ev) 
 {
@@ -74,12 +35,25 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         mg_get_var(conn, "width", widthChar, sizeof(widthChar));
         mg_get_var(conn, "height", heightChar, sizeof(heightChar));
 
-        QString format = QString(formatChar);
-        QString html = QString(htmlChar);
-        QString js = QString(jsChar);
-        QString output = QString(outputChar);
+        QString format(formatChar);
+        QString html(htmlChar);
+        QString js(jsChar);
+        QString output(outputChar);
         int width = QString(widthChar).toInt();
         int height = QString(heightChar).toInt();
+
+        if ( !output.length() )
+        {
+            return send_error(conn, "No output specified");
+        }
+        if ( width < 1 || height < 1 )
+        {
+            return send_error(conn, "Bad dimensions");
+        }
+        if ( !html.length() )
+        {
+            return send_error(conn, "Empty document");
+        }
 
         QTemporaryFile file(output + QString("_XXXXXX.html"));
         file.open();
@@ -105,11 +79,19 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.screenHeight = height;
 
         QStringList pathParts = QString(conn->uri).split("/", QString::SkipEmptyParts);
-        QString path = pathParts[pathParts.size() - 1];
-
-        QList<QString> scripts;
-        if (path.compare(QString("evaluate")) == 0) {
-            scripts.append(js.toLocal8Bit().constData());
+        if ( pathParts.isEmpty() )
+        {
+            return send_error(conn, "Bad endpoint");
+        }
+        QString path = pathParts.last();
+        if (path == "evaluate") 
+        {
+            if ( !js.length() )
+            {
+                return send_error(conn, "Nothing to evaluate");                
+            }
+            QList<QString> scripts;
+            scripts.append(js);
             settings.loadPage.runScript = scripts;
         }
 
@@ -120,7 +102,6 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QObject::connect(&converter, SIGNAL(radiobuttonCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setRadioButtonCheckedSvg(const QString &)));
 
         wkhtmltopdf::ProgressFeedback feedback(true, converter);
-        std::cout << "starting converter." << std::endl;
         bool success = converter.convert();
         if ( true )
         {
@@ -193,7 +174,7 @@ int main(int argc, char *argv[])
 
     mg_set_option(server, "listening_port", QString::number(port).toLocal8Bit().constData());
 
-    printf("Starting on port %s\n", mg_get_option(server, "listening_port"));
+    std::cout << "Starting on port " << mg_get_option(server, "listening_port") << std::endl;
     for (;;) {
         mg_poll_server(server, 1000);
     }
