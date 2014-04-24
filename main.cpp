@@ -129,7 +129,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QObject::connect(&converter, SIGNAL(radiobuttonCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setRadioButtonCheckedSvg(const QString &)));
 
         wkhtmltopdf::ProgressFeedback feedback(true, converter);
-        bool success = converter.convert();
+        bool success = converter.convert();  
         if ( g_verbosity )
         {
             std::cout << conn->uri << ": " << (success?"OK":"FAIL") << " " << html.left(30) << "..." << std::endl;
@@ -154,10 +154,15 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
                     std::cout << " script result: " << converter.scriptResult() << std::endl;
                 }
             }
+            if ( g_verbosity > 3 )
+            {
+                std::cout << "      html: " << html << std::endl;
+                std::cout << "        js: " << js << std::endl;
+            }
         }
         mg_send_header(conn, "Content-Type", "application/json");
         QString clickzones = converter.scriptResult();
-        QString json = QString("{\"path\": \"%1\", \"clickzones\": \"%2\"}").arg(settings.out, clickzones);
+        QString json = QString("{\"path\": \"%1\", \"result\": \"%2\"}").arg(settings.out, clickzones);
         mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
         return MG_TRUE;
     } 
