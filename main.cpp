@@ -166,15 +166,15 @@ int main(int argc, char *argv[])
 
     int port = 9090;
     QStringList args = app.arguments();
-    QRegExp rxArgPort("--port=([0-9]{1,})");
+    QRegExp rxPort("--port=([0-9]{1,})");
     QRegExp rxVerbose("--verbosity=([0-9]{1,})");
 
     for (int i = 1; i < args.size(); ++i) {
-        if (rxArgPort.indexIn(args.at(i)) != -1 )
+        if (rxPort.indexIn(args.at(i)) != -1 )
         {
-            port =  rxArgPort.cap(1).toInt();
+            port =  rxPort.cap(1).toInt();
         }
-        else if (rxVerbose.indexIn(args.at(i)) != 1 ) 
+        else if (rxVerbose.indexIn(args.at(i)) != -1 ) 
         {
             g_verbosity = rxVerbose.cap(1).toInt();
         }
