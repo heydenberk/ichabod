@@ -61,69 +61,94 @@ int main2(int argc, char *argv[])
 #include <string.h>
 #include "mongoose.h"
 
-static int rasterize(struct mg_connection* conn )
-{
-    char var1[500], var2[500];
-    mg_get_var(conn, "input_1", var1, sizeof(var1));
-    mg_get_var(conn, "input_2", var2, sizeof(var2));
-
-
-      wkhtmltopdf::settings::ImageGlobal settings;
-      settings.in = "/tmp/test.html";
-      settings.quality = 0;
-      settings.fmt = "png";
-      settings.out = "/tmp/out.png";
-      settings.screenWidth = 800;
-      settings.screenHeight = 600;
-      QList<QString> l;
-      l.append("1+1");
-      settings.loadPage.runScript = l;
-
-      wkhtmltopdf::ImageConverter converter(settings);
-      QObject::connect(&converter, SIGNAL(checkboxSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxSvg(const QString &)));
-      QObject::connect(&converter, SIGNAL(checkboxCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxCheckedSvg(const QString &)));
-      QObject::connect(&converter, SIGNAL(radiobuttonSvgChanged(const QString &)), qApp->style(), SLOT(setRadioButtonSvg(const QString &)));
-      QObject::connect(&converter, SIGNAL(radiobuttonCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setRadioButtonCheckedSvg(const QString &)));
-
-      wkhtmltopdf::ProgressFeedback feedback(true, converter);
-      std::cout << "starting converter." << std::endl;
-      bool success = converter.convert();
-      if ( true )
-      {
-          std::cout << "Rasterized html--------------------"<< std::endl;
-//std::cout << "         peer: " << socket->peerAddress().toString().toLocal8Bit().constData() << std::endl;        
-          std::cout << "      success: " << success << std::endl;        
-          std::cout << "           in: " << settings.in.toLocal8Bit().constData() << std::endl;
-          std::cout << "          out: " << settings.out.toLocal8Bit().constData() << std::endl;
-          std::cout << "      quality: " << settings.quality<< std::endl;
-          std::cout << "          fmt: " << settings.fmt.toLocal8Bit().constData() << std::endl;
-          std::cout << "  screenWidth: " << settings.screenWidth << std::endl;
-          std::cout << " screenHeight: " << settings.screenHeight << std::endl;
-          if ( 2 > 1 )
-          {
-              QFileInfo fi(settings.out);
-              std::cout << "        bytes: " << fi.size() << std::endl;
-              QImage img(settings.out, settings.fmt.toLocal8Bit().constData());
-              std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
-//std::cout << "         html: " << m_postMap["html"].toLocal8Bit().constData() << std::endl;
-              std::cout << " script result: " << converter.scriptResult().toLocal8Bit().constData() << std::endl;
-              
-          }
-      }
-      std::cout << "done." << std::endl;
-      return MG_TRUE;
-}
 
 static int ev_handler(struct mg_connection *conn, enum mg_event ev) 
 {
     if (ev == MG_REQUEST) 
     {
-        if (strcmp(conn->uri, "/rasterize") == 0) 
+        char formatChar[32], htmlChar[2097152], jsChar[1048576], outputChar[128], widthChar[32], heightChar[32];
+        mg_get_var(conn, "format", formatChar, sizeof(formatChar));
+        mg_get_var(conn, "html", htmlChar, sizeof(htmlChar));
+        mg_get_var(conn, "js", jsChar, sizeof(jsChar));
+        mg_get_var(conn, "output", outputChar, sizeof(outputChar));
+        mg_get_var(conn, "width", widthChar, sizeof(widthChar));
+        mg_get_var(conn, "height", heightChar, sizeof(heightChar));
+
+        QString format = QString(formatChar);
+        QString html = QString(htmlChar);
+        QString js = QString(jsChar);
+        QString output = QString(outputChar);
+        int width = QString(widthChar).toInt();
+        int height = QString(heightChar).toInt();
+
+        QTemporaryFile file(output + QString("_XXXXXX.html"));
+        file.open();
+        QTextStream out(&file);
+        out << html;
+        out.flush();
+
+        if ( format.startsWith(".") )
         {
-            return rasterize(conn);
+            format = format.mid(1);
         }
-        
-        return MG_FALSE;
+        if ( format.isEmpty() )
+        {
+            format = "png";
+        }
+
+        wkhtmltopdf::settings::ImageGlobal settings;
+        settings.fmt = format;
+        settings.in = file.fileName();
+        settings.quality = 0;
+        settings.out = output;
+        settings.screenWidth = width;
+        settings.screenHeight = height;
+
+        QStringList pathParts = QString(conn->uri).split("/", QString::SkipEmptyParts);
+        QString path = pathParts[pathParts.size() - 1];
+
+        QList<QString> scripts;
+        if (path.compare(QString("evaluate")) == 0) {
+            scripts.append(js.toLocal8Bit().constData());
+            settings.loadPage.runScript = scripts;
+        }
+
+        wkhtmltopdf::ImageConverter converter(settings);
+        QObject::connect(&converter, SIGNAL(checkboxSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxSvg(const QString &)));
+        QObject::connect(&converter, SIGNAL(checkboxCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxCheckedSvg(const QString &)));
+        QObject::connect(&converter, SIGNAL(radiobuttonSvgChanged(const QString &)), qApp->style(), SLOT(setRadioButtonSvg(const QString &)));
+        QObject::connect(&converter, SIGNAL(radiobuttonCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setRadioButtonCheckedSvg(const QString &)));
+
+        wkhtmltopdf::ProgressFeedback feedback(true, converter);
+        std::cout << "starting converter." << std::endl;
+        bool success = converter.convert();
+        if ( true )
+        {
+            std::cout << "Rasterized html--------------------" << std::endl;
+            std::cout << "      success: " << success << std::endl;
+            std::cout << "           in: " << settings.in.toLocal8Bit().constData() << std::endl;
+            std::cout << "          out: " << settings.out.toLocal8Bit().constData() << std::endl;
+            std::cout << "      quality: " << settings.quality<< std::endl;
+            std::cout << "          fmt: " << settings.fmt.toLocal8Bit().constData() << std::endl;
+            std::cout << "  screenWidth: " << settings.screenWidth << std::endl;
+            std::cout << " screenHeight: " << settings.screenHeight << std::endl;
+            if ( 2 > 1 )
+            {
+                QFileInfo fi(settings.out);
+                std::cout << "        bytes: " << fi.size() << std::endl;
+                QImage img(settings.out, settings.fmt.toLocal8Bit().constData());
+                std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
+                std::cout << " script result: " << converter.scriptResult().toLocal8Bit().constData() << std::endl;
+            }
+        }
+        mg_send_header(conn, "Content-Type", "application/json");
+        QString clickzones = converter.scriptResult();
+        QString json = QString("{\"path\": \"%1\", \"clickzones\": \"%2\"}").arg(settings.out, clickzones.toLocal8Bit().constData());
+        std::cout << "json: " << json.toLocal8Bit().constData() << std::endl;
+
+        mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
+        std::cout << "done." << std::endl;
+        return MG_TRUE;
     } 
     else if (ev == MG_AUTH) 
     {
