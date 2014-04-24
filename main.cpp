@@ -157,7 +157,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         }
         mg_send_header(conn, "Content-Type", "application/json");
         QString clickzones = converter.scriptResult();
-        QString json = QString("{\"path\": \"%1\", \"clickzones\": \"%2\"}").arg(settings.out, clickzones);
+        QString json = QString("{\"path\": \"%1\", \"result\": \"%2\"}").arg(settings.out, clickzones);
         mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
         return MG_TRUE;
     } 
