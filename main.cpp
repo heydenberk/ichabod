@@ -95,6 +95,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.out = output;
         settings.screenWidth = width;
         settings.screenHeight = height;
+        settings.transparent = true;
 
         QStringList pathParts = QString(conn->uri).split("/", QString::SkipEmptyParts);
         if ( pathParts.isEmpty() )
