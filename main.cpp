@@ -16,11 +16,13 @@
 
 int g_verbosity = 0;
 
+// overload to allow QString output
 std::ostream& operator<<(std::ostream& str, const QString& string) 
 {
     return str << string.toLocal8Bit().constData();
 }
 
+// output error and send error back to client
 static int send_error(struct mg_connection* conn, const char* err)
 {
     std::cerr << "ERROR:" << err << std::endl;
@@ -30,24 +32,33 @@ static int send_error(struct mg_connection* conn, const char* err)
     return MG_TRUE;
 }
 
+// either get the POST variable, or returning empty string
+// WARNING: this function is not re-entrant
+static QString get_var( struct mg_connection *conn, const char* var_name )
+{
+    static char data[2097152];
+    int r = mg_get_var(conn, var_name, data, sizeof(data));
+    switch( r )
+    {
+    case -1: // not found
+        return QString();
+    case -2: // too big
+        return QString();
+    }
+    return QString(data);
+}
+
+// handler for all incoming connections
 static int ev_handler(struct mg_connection *conn, enum mg_event ev) 
 {
     if (ev == MG_REQUEST) 
     {
-        char formatChar[32], htmlChar[2097152], jsChar[1048576], outputChar[128], widthChar[32], heightChar[32];
-        mg_get_var(conn, "format", formatChar, sizeof(formatChar));
-        mg_get_var(conn, "html", htmlChar, sizeof(htmlChar));
-        mg_get_var(conn, "js", jsChar, sizeof(jsChar));
-        mg_get_var(conn, "output", outputChar, sizeof(outputChar));
-        mg_get_var(conn, "width", widthChar, sizeof(widthChar));
-        mg_get_var(conn, "height", heightChar, sizeof(heightChar));
-
-        QString format(formatChar);
-        QString html(htmlChar);
-        QString js(jsChar);
-        QString output(outputChar);
-        int width = QString(widthChar).toInt();
-        int height = QString(heightChar).toInt();
+        QString format = get_var(conn, "format");
+        QString html = get_var(conn, "html");
+        QString js = get_var(conn, "js");
+        QString output = get_var(conn, "output");
+        int width = get_var(conn, "width").toInt();
+        int height = get_var(conn, "height").toInt();
 
         if ( !output.length() )
         {
