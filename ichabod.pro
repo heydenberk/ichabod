@@ -9,7 +9,7 @@ QT += webkit network xmlpatterns svg
 TEMPLATE = app
 TARGET = ichabod
 INCLUDEPATH += . wkhtmltopdf/src/shared wkhtmltopdf/src/image wkhtmltopdf/include mongoose
-#CONFIG += debug
+CONFIG += debug
 
 HEADERS +=  wkhtmltopdf/src/shared/progressfeedback.hh
 
