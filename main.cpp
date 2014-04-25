@@ -74,7 +74,10 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         }
 
         QTemporaryFile file(output + QString("_XXXXXX.html"));
-        file.open();
+        if ( !file.open() )
+        {
+            return send_error(conn, (QString("Unable to open:") + output + QString("_XXXXXX.html")).toLocal8Bit().constData() );
+        }
         QTextStream out(&file);
         out << html;
         out.flush();
