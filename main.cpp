@@ -176,7 +176,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
 int main(int argc, char *argv[])
 {
 
-    bool gui = true;
+    bool gui = false;
     QApplication app(argc, argv, gui);
     MyLooksStyle * style = new MyLooksStyle();
     app.setStyle(style);

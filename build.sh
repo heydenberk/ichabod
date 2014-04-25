@@ -1,8 +1,8 @@
 #!/bin/bash
 
-yum install -y python-multiprocessing gcc44-c++ libX11-devel libXext-devel libXrender-devel xz xorg-x11-fonts-75dpi.noarch
-yum install -y xorg-x11-fonts-100dpi.noarch xorg-x11-xfs xorg-x11-xfs-utils xorg-x11-server-Xvfb rpm-build cabextract
-yum install -y Xorg  
+yum install -y python-multiprocessing gcc44-c++ libX11-devel libXext-devel libXrender-devel
+yum install -y freetype-devel fontconfig-devel
+yum install -y xorg-x11-xfs xorg-x11-xfs-utils  rpm-build
 
 ln -s /usr/bin/g++44 /usr/bin/g++
 
