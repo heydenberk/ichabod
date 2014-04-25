@@ -3,7 +3,7 @@
 
 Summary: Ichabod Server
 Name: %{name}
-Version: 0.0.0.1
+Version: %{expand:%%(cat version)}
 Release: 1
 License: Spec file is LGPL, binary rpm is gratis but non-distributable
 Group: Applications/System
