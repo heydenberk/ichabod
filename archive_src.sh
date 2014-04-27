@@ -1,5 +1,5 @@
 #!/bin/bash
-
+source common.sh
 mkdir srcbuild
 pushd srcbuild
 git clone https://github.com/moseymosey/ichabod.git
