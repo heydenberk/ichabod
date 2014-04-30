@@ -1,6 +1,7 @@
 #!/bin/bash
 
 pushd giflib
-./configure
+mkdir m4
+./autogen.sh
 make
 popd

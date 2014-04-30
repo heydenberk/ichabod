@@ -6,6 +6,8 @@ UI_DIR       = build
 
 QT += webkit network xmlpatterns svg
 
+LIB_DIR += giflib/lib
+LIBS += gif
 TEMPLATE = app
 TARGET = ichabod
 INCLUDEPATH += . wkhtmltopdf/src/shared wkhtmltopdf/src/image wkhtmltopdf/include mongoose
