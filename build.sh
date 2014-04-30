@@ -1,6 +1,9 @@
 #!/bin/bash
 
 setup_build_env.sh
+
+./build_giflib.sh
+
 source common.sh
 
 VERSION=`cat version`
