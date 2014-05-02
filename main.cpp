@@ -57,6 +57,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QString html = get_var(conn, "html");
         QString js = get_var(conn, "js");
         QString output = get_var(conn, "output");
+        QString url = get_var(conn, "url");
         int width = get_var(conn, "width").toInt();
         int height = get_var(conn, "height").toInt();
 
@@ -68,19 +69,27 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         {
             return send_error(conn, "Bad dimensions");
         }
-        if ( !html.length() )
+        if ( !html.length() && !url.length() )
         {
-            return send_error(conn, "Empty document");
+            return send_error(conn, "Empty document and no URL specified");
         }
 
-        QTemporaryFile file(output + QString("_XXXXXX.html"));
-        if ( !file.open() )
-        {
-            return send_error(conn, (QString("Unable to open:") + output + QString("_XXXXXX.html")).toLocal8Bit().constData() );
+        QString input;
+        if ( html.length() ) {
+            QTemporaryFile file(output + QString("_XXXXXX.html"));
+            if ( !file.open() )
+            {
+                return send_error(conn, (QString("Unable to open:") + output + QString("_XXXXXX.html")).toLocal8Bit().constData() );
+            }
+            QTextStream out(&file);
+            out << html;
+            out.flush();
+
+            input = file.fileName();
+        } else {
+            input = url;
         }
-        QTextStream out(&file);
-        out << html;
-        out.flush();
+
 
         if ( format.startsWith(".") )
         {
@@ -93,7 +102,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
 
         wkhtmltopdf::settings::ImageGlobal settings;
         settings.fmt = format;
-        settings.in = file.fileName();
+        settings.in = input;
         settings.quality = 0;
         settings.out = output;
         settings.screenWidth = width;
