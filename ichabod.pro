@@ -6,13 +6,12 @@ UI_DIR       = build
 
 QT += webkit network xmlpatterns svg
 
-LIB_DIR += giflib/lib
-LIBS += gif
 TEMPLATE = app
 TARGET = ichabod
-INCLUDEPATH += . wkhtmltopdf/src/shared wkhtmltopdf/src/image wkhtmltopdf/include mongoose
+INCLUDEPATH += . wkhtmltopdf/src/shared wkhtmltopdf/src/image wkhtmltopdf/include mongoose giflib/lib
 #CONFIG += debug
 
+# wkhtmltopdf
 HEADERS +=  wkhtmltopdf/src/shared/progressfeedback.hh
 
 SOURCES += wkhtmltopdf/src/shared/outputter.cc wkhtmltopdf/src/shared/manoutputter.cc wkhtmltopdf/src/shared/htmloutputter.cc \
@@ -30,4 +29,14 @@ HEADERS += wkhtmltopdf/src/lib/imageconverter.hh wkhtmltopdf/src/lib/imagesettin
 HEADERS += wkhtmltopdf/src/lib/imageconverter_p.hh
 SOURCES += wkhtmltopdf/src/lib/imagesettings.cc wkhtmltopdf/src/lib/imageconverter.cc
 
-SOURCES += main.cpp mongoose/mongoose.c
+
+# mongoose
+SOURCES += mongoose/mongoose.c
+
+# giflib
+SOURCES += giflib/lib/dgif_lib.c giflib/lib/egif_lib.c giflib/lib/gifalloc.c giflib/lib/gif_err.c giflib/lib/gif_font.c giflib/lib/gif_hash.c giflib/lib/quantize.c
+
+# ichabod
+HEADERS += conv.h
+SOURCES += agif.cpp conv.cpp main.cpp
+
