@@ -7,13 +7,20 @@
 #include <wkhtmltox/utilities.hh>
 #include <QWebPage>
 
-class IchabodConverter: public wkhtmltopdf::ImageConverter {
+struct IchabodSettings : public wkhtmltopdf::settings::ImageGlobal 
+{
+    int verbosity;
+    QString rasterizer;
+};
+
+class IchabodConverter: public wkhtmltopdf::ImageConverter 
+{
     Q_OBJECT
 public:
-    IchabodConverter(wkhtmltopdf::settings::ImageGlobal & settings, const QString * data=NULL);
+    IchabodConverter(IchabodSettings & settings, const QString * data=NULL);
     ~IchabodConverter();
 
-    QString convert( int verbosity, const wkhtmltopdf::settings::ImageGlobal& settings );
+    QString convert();
 public slots:
     void setTransparent( bool t );
     void setQuality( int q );
@@ -25,7 +32,8 @@ public slots:
 private slots:
     void slotJavascriptEnvironment(QWebPage* page);
 private:
-    wkhtmltopdf::settings::ImageGlobal m_settings;
+    void debugSettings(bool success_status);
+    IchabodSettings m_settings;
     QWebPage* m_activePage;
     QVector<QImage> m_images;
 };

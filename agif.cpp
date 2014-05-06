@@ -113,7 +113,7 @@ bool gifWrite ( const QVector<QImage> & images, const QString& filename, bool lo
         if (EGifPutImageDesc(gif, 0, 0, toWrite.width(), toWrite.height(), 0, &cmap) == GIF_ERROR)
             qCritical("EGifPutImageDesc returned error");
         int lc = toWrite.height();
-        int llen = toWrite.bytesPerLine();
+        //int llen = toWrite.bytesPerLine();
         //qDebug("will write %d lines, %d bytes each", lc, llen);
         for (int l = 0; l < lc; ++l)
         {
