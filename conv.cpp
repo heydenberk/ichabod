@@ -14,7 +14,7 @@ std::ostream& operator<<(std::ostream& str, const QString& string)
 }
 
 
-IchabodConverter::IchabodConverter(wkhtmltopdf::settings::ImageGlobal & s, const QString * data) 
+IchabodConverter::IchabodConverter(IchabodSettings & s, const QString * data) 
     : wkhtmltopdf::ImageConverter(s,data)
     , m_settings(s)
     , m_activePage(0)
@@ -55,13 +55,21 @@ void IchabodConverter::setFormat( const QString& fmt )
 void IchabodConverter::slotJavascriptEnvironment(QWebPage* page)
 {
     // register the current environment
+    if ( m_settings.verbosity > 2 )
+    {
+        std::cout << " js rasterizer:" << m_settings.rasterizer << std::endl;
+    }
     m_activePage = page;
-    m_activePage->mainFrame()->addToJavaScriptWindowObject("rasterizer", 
+    m_activePage->mainFrame()->addToJavaScriptWindowObject(m_settings.rasterizer, 
                                                            this);
 }
 
 void IchabodConverter::snapshotPage()
 {
+    if ( m_settings.verbosity > 3 )
+    {
+        std::cout << "     snapshot"<< std::endl;
+    }
     QWebFrame* frame = m_activePage->mainFrame();
     frame->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
 
@@ -145,7 +153,10 @@ void IchabodConverter::snapshotPage()
 
 void IchabodConverter::saveToOutput()
 {
-    std::cout << "IchabodConverter::saveToOutput size:" << m_images.size() << std::endl;
+    if ( m_settings.verbosity > 1 )
+    {
+        std::cout << "       images: " << m_images.size() << std::endl;
+    }
     if ( !m_images.size() )
     {
         snapshotPage();
@@ -169,39 +180,44 @@ void IchabodConverter::saveToOutput()
     }
 }
 
-QString IchabodConverter::convert( int verbosity, const wkhtmltopdf::settings::ImageGlobal& settings )
+void IchabodConverter::debugSettings(bool success_status)
+{
+    if ( m_settings.verbosity )
+    {
+        std::cout << "      success: " << success_status << std::endl;
+        if ( m_settings.verbosity > 1 )
+        {
+            std::cout << "           in: " << m_settings.in << std::endl;
+            std::cout << "          out: " << m_settings.out << std::endl;
+            std::cout << "      quality: " << m_settings.quality<< std::endl;
+            std::cout << "          fmt: " << m_settings.fmt << std::endl;
+            std::cout << "  transparent: " << m_settings.transparent << std::endl;
+            std::cout << "       screen: " << m_settings.screenWidth << "x" << m_settings.screenHeight << std::endl;
+        }
+        if ( m_settings.verbosity > 2 )
+        {
+            QFileInfo fi(m_settings.out);
+            std::cout << "        bytes: " << fi.size() << std::endl;
+            QImage img(m_settings.out, m_settings.fmt.toLocal8Bit().constData());
+            std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
+            std::cout << " script result: " << scriptResult() << std::endl;
+        }
+        if ( m_settings.verbosity > 3 )
+        {
+            QFile fil_read(m_settings.in);
+            fil_read.open(QIODevice::ReadOnly);
+            QByteArray arr = fil_read.readAll();
+            std::cout << "      html: " << QString(arr) << std::endl;
+            std::cout << "        js: " << m_settings.loadPage.runScript.at(0) << std::endl;
+        }
+    }
+}
+
+QString IchabodConverter::convert()
 {
     m_images.clear();
     wkhtmltopdf::ProgressFeedback feedback(true, *this);
     bool success = wkhtmltopdf::ImageConverter::convert();  
-    if ( verbosity )
-    {
-        if ( verbosity > 1 )
-        {
-            std::cout << "      success: " << success << std::endl;
-            std::cout << "           in: " << settings.in << std::endl;
-            std::cout << "          out: " << settings.out << std::endl;
-            std::cout << "      quality: " << settings.quality<< std::endl;
-            std::cout << "          fmt: " << settings.fmt << std::endl;
-            std::cout << "  transparent: " << settings.transparent << std::endl;
-            std::cout << "       screen: " << settings.screenWidth << "x" << settings.screenHeight << std::endl;
-        }
-        if ( verbosity > 2 )
-        {
-            QFileInfo fi(settings.out);
-            std::cout << "        bytes: " << fi.size() << std::endl;
-            QImage img(settings.out, settings.fmt.toLocal8Bit().constData());
-            std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
-            std::cout << " script result: " << scriptResult() << std::endl;
-        }
-        if ( verbosity > 3 )
-        {
-            QFile fil_read(settings.in);
-            fil_read.open(QIODevice::ReadOnly);
-            QByteArray arr = fil_read.readAll();
-            std::cout << "      html: " << QString(arr) << std::endl;
-            std::cout << "        js: " << settings.loadPage.runScript.at(0) << std::endl;
-        }
-    }
+    debugSettings(success);
     return scriptResult();
 }

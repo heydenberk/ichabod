@@ -7,7 +7,6 @@
 #include <QImage>
 #include <QFileInfo>
 
-#include <wkhtmltox/imagesettings.hh>
 #include <wkhtmltox/utilities.hh>
 #include <wkhtmltox/imageconverter.hh>
 
@@ -51,11 +50,16 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QString format = get_var(conn, "format");
         QString html = get_var(conn, "html");
         QString js = get_var(conn, "js");
+        QString rasterizer = get_var(conn, "rasterizer");
         QString output = get_var(conn, "output");
         QString url = get_var(conn, "url");
         int width = get_var(conn, "width").toInt();
         int height = get_var(conn, "height").toInt();
 
+        if ( !rasterizer.length() )
+        {
+            rasterizer = "ichabod";
+        }
         if ( !output.length() )
         {
             return send_error(conn, "No output specified");
@@ -70,8 +74,8 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         }
 
         QString input;
+        QTemporaryFile file(output + QString("_XXXXXX.html"));
         if ( html.length() ) {
-            QTemporaryFile file(output + QString("_XXXXXX.html"));
             if ( !file.open() )
             {
                 return send_error(conn, (QString("Unable to open:") + output + QString("_XXXXXX.html")).toLocal8Bit().constData() );
@@ -85,7 +89,6 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             input = url;
         }
 
-
         if ( format.startsWith(".") )
         {
             format = format.mid(1);
@@ -95,7 +98,9 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             format = "png";
         }
 
-        wkhtmltopdf::settings::ImageGlobal settings;
+        IchabodSettings settings;
+        settings.verbosity = g_verbosity;
+        settings.rasterizer = rasterizer;
         settings.fmt = format;
         settings.in = input;
         settings.quality = 0;
@@ -122,7 +127,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             if ( js.isEmpty() )
             {
                 // backwards compatibility
-                js = "(function(){rasterizer.saveToOutput();})()";
+                js = QString("(function(){%1.saveToOutput();})()").arg(settings.rasterizer);
             }
         }
         else
@@ -137,16 +142,15 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         }
         settings.loadPage.runScript = scripts;
 
-        std::cout << "scripts size:" << settings.loadPage.runScript.size() << std::endl;
-
-        IchabodConverter converter(settings);
         mg_send_header(conn, "Content-Type", "application/json");
         if ( g_verbosity )
         {
             std::cout << conn->uri << std::endl;
         }
+
+        IchabodConverter converter(settings);
         QDateTime now = QDateTime::currentDateTime();
-        QString result = converter.convert(g_verbosity, settings);
+        QString result = converter.convert();
         if ( g_verbosity )
         {
             std::cout << "elapsed (msec):" << now.msecsTo(QDateTime::currentDateTime()) << std::endl;
