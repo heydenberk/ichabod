@@ -7,20 +7,15 @@
 #include <QImage>
 #include <QFileInfo>
 
-#include "progressfeedback.hh"
 #include <wkhtmltox/imagesettings.hh>
 #include <wkhtmltox/utilities.hh>
 #include <wkhtmltox/imageconverter.hh>
 
 #include "mongoose.h"
 
-int g_verbosity = 0;
+#include "conv.h"
 
-// overload to allow QString output
-std::ostream& operator<<(std::ostream& str, const QString& string) 
-{
-    return str << string.toLocal8Bit().constData();
-}
+int g_verbosity = 0;
 
 // output error and send error back to client
 static int send_error(struct mg_connection* conn, const char* err)
@@ -108,7 +103,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.screenWidth = width;
         settings.screenHeight = height;
         settings.transparent = true;
-
+        // check endpoint and scripts
         QStringList pathParts = QString(conn->uri).split("/", QString::SkipEmptyParts);
         if ( pathParts.isEmpty() )
         {
@@ -121,60 +116,42 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             {
                 return send_error(conn, "Nothing to evaluate");                
             }
-            QList<QString> scripts;
-            scripts.append(js);
-            settings.loadPage.runScript = scripts;
         }
         else if (path == "rasterize")
         {
-            // ok
+            if ( js.isEmpty() )
+            {
+                // backwards compatibility
+                js = "(function(){rasterizer.saveToOutput();})()";
+            }
         }
         else
         {
             return send_error(conn, "Bad endpoint");
         }
+        QList<QString> scripts;
+        scripts.append(js);
+        if ( !scripts.size() )
+        {
+            return send_error(conn, "Internal error: no scripts");
+        }
+        settings.loadPage.runScript = scripts;
 
-        wkhtmltopdf::ImageConverter converter(settings);
-        QObject::connect(&converter, SIGNAL(checkboxSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxSvg(const QString &)));
-        QObject::connect(&converter, SIGNAL(checkboxCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxCheckedSvg(const QString &)));
-        QObject::connect(&converter, SIGNAL(radiobuttonSvgChanged(const QString &)), qApp->style(), SLOT(setRadioButtonSvg(const QString &)));
-        QObject::connect(&converter, SIGNAL(radiobuttonCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setRadioButtonCheckedSvg(const QString &)));
+        std::cout << "scripts size:" << settings.loadPage.runScript.size() << std::endl;
 
-        wkhtmltopdf::ProgressFeedback feedback(true, converter);
-        bool success = converter.convert();  
+        IchabodConverter converter(settings);
+        mg_send_header(conn, "Content-Type", "application/json");
         if ( g_verbosity )
         {
-            std::cout << conn->uri << ": " << (success?"OK":"FAIL") << " " << html.left(30) << "..." << std::endl;
-            if ( g_verbosity > 1 )
-            {
-                std::cout << "      success: " << success << std::endl;
-                std::cout << "           in: " << settings.in << std::endl;
-                std::cout << "          out: " << settings.out << std::endl;
-                std::cout << "      quality: " << settings.quality<< std::endl;
-                std::cout << "          fmt: " << settings.fmt << std::endl;
-                std::cout << "  screenWidth: " << settings.screenWidth << std::endl;
-                std::cout << " screenHeight: " << settings.screenHeight << std::endl;
-            }
-            if ( g_verbosity > 2 )
-            {
-                QFileInfo fi(settings.out);
-                std::cout << "        bytes: " << fi.size() << std::endl;
-                QImage img(settings.out, settings.fmt.toLocal8Bit().constData());
-                std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
-                if ( !js.isEmpty() )
-                {
-                    std::cout << " script result: " << converter.scriptResult() << std::endl;
-                }
-            }
-            if ( g_verbosity > 3 )
-            {
-                std::cout << "      html: " << html << std::endl;
-                std::cout << "        js: " << js << std::endl;
-            }
+            std::cout << conn->uri << std::endl;
         }
-        mg_send_header(conn, "Content-Type", "application/json");
-        QString clickzones = converter.scriptResult();
-        QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, clickzones);
+        QDateTime now = QDateTime::currentDateTime();
+        QString result = converter.convert(g_verbosity, settings);
+        if ( g_verbosity )
+        {
+            std::cout << "elapsed (msec):" << now.msecsTo(QDateTime::currentDateTime()) << std::endl;
+        }
+        QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, result);
         mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
         return MG_TRUE;
     } 
@@ -209,7 +186,7 @@ int main(int argc, char *argv[])
         }
         else 
         {
-            std::cerr << "Uknown arg:" << args.at(i) << std::endl;
+            std::cerr << "Uknown arg:" << args.at(i).toLocal8Bit().constData() << std::endl;
             return -1;
         }
     }

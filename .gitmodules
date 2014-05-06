@@ -4,3 +4,6 @@
 [submodule "wkhtmltopdf"]
 	path = wkhtmltopdf
 	url = https://github.com/monetate/wkhtmltopdf.git
+[submodule "giflib"]
+	path = giflib
+	url = http://git.code.sf.net/p/giflib/code
