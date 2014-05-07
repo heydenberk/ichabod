@@ -25,6 +25,12 @@ popd
 wkhtmltopdf/static-build/centos/qt/bin/qmake ichabod.pro
 make
 
+pushd wkhtmltopdf/static-build/centos/qt_build
+make clean
+popd
+
+./test.sh 
+
 ./archive_src.sh
 
 ./build_rpm.sh

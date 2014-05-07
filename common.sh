@@ -9,3 +9,7 @@ function subm() {
     git submodule update --init
     popd
 }
+
+function ichabod_version() {
+    cat version.h | awk '{print $3;}' | tr -d \"
+}

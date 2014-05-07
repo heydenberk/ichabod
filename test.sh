@@ -12,8 +12,8 @@ ANIM_FILE=hello.gif
 
 function cleanup()
 {
-    #rm -f $HELLO_FILE
-    #rm -f $ANIM_FILE
+    rm -f $HELLO_FILE
+    rm -f $ANIM_FILE
     sleep 1
     kill $ichabod_pid > /dev/null 2>&1
 }
