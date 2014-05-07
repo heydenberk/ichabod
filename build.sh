@@ -34,3 +34,7 @@ popd
 ./archive_src.sh
 
 ./build_rpm.sh
+
+# all done, reset everything
+trap - EXIT
+exit 0
