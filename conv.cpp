@@ -217,6 +217,7 @@ void IchabodConverter::debugSettings(bool success_status)
 QString IchabodConverter::convert()
 {
     m_images.clear();
+    m_delays.clear();
     wkhtmltopdf::ProgressFeedback feedback(true, *this);
     bool success = wkhtmltopdf::ImageConverter::convert();  
     debugSettings(success);
