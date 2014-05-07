@@ -11,9 +11,13 @@ void makeIndexedImage( QImage& img )
     //img.save("/tmp/out_indexed8.png", "png", 100);
 }
 
-bool gifWrite ( const QVector<QImage> & images, const QString& filename, bool loop )
+bool gifWrite ( const QVector<QImage> & images, const QVector<int>& delays, const QString& filename, bool loop )
 {
     if ( !images.size() )
+    {
+        return false;
+    }
+    if ( images.size() != delays.size() )
     {
         return false;
     }
@@ -104,10 +108,11 @@ bool gifWrite ( const QVector<QImage> & images, const QString& filename, bool lo
         //qDebug("line length:%d", toWrite.bytesPerLine() );
 
         // animation delay
+        int msec_delay = delays.at( it-images.begin() );
         static unsigned char ExtStr[4] = { 0x04, 0x00, 0x00, 0xff };
         ExtStr[0] = (false) ? 0x06 : 0x04;
-        ExtStr[1] = 100 % 256;
-        ExtStr[2] = 100 / 256;
+        ExtStr[1] = msec_delay % 256;
+        ExtStr[2] = msec_delay / 256;
         EGifPutExtension(gif, GRAPHICS_EXT_FUNC_CODE, 4, ExtStr);
 
         if (EGifPutImageDesc(gif, 0, 0, toWrite.width(), toWrite.height(), 0, &cmap) == GIF_ERROR)

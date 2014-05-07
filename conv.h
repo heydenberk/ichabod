@@ -26,7 +26,7 @@ public slots:
     void setQuality( int q );
     void setScreen( int w, int h );
     void setFormat( const QString& fmt );
-    void snapshotPage();
+    void snapshotPage( int msec_delay = 100);
     void saveToOutput();
 
 private slots:
@@ -36,6 +36,7 @@ private:
     IchabodSettings m_settings;
     QWebPage* m_activePage;
     QVector<QImage> m_images;
+    QVector<int> m_delays;
 };
 
 #endif

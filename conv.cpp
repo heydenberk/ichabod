@@ -64,7 +64,7 @@ void IchabodConverter::slotJavascriptEnvironment(QWebPage* page)
                                                            this);
 }
 
-void IchabodConverter::snapshotPage()
+void IchabodConverter::snapshotPage(int msec_delay)
 {
     if ( m_settings.verbosity > 3 )
     {
@@ -149,6 +149,7 @@ void IchabodConverter::snapshotPage()
     painter.end();
     
     m_images.push_back(image);
+    m_delays.push_back(msec_delay);
 }
 
 void IchabodConverter::saveToOutput()
@@ -161,9 +162,9 @@ void IchabodConverter::saveToOutput()
     {
         snapshotPage();
     }
-    if ( m_settings.fmt == "gif" && m_images.size() > 1 )
+    if ( m_settings.fmt == "gif" )
     {
-        gifWrite( m_images, m_settings.out, true );
+        gifWrite( m_images, m_delays, m_settings.out, true );
     }
     else
     {

@@ -4,6 +4,6 @@
 #include <QVector>
 #include <QImage>
 
-bool gifWrite ( const QVector<QImage> & images, const QString& filename, bool loop = false );
+bool gifWrite ( const QVector<QImage> & images, const QVector<int>& delays, const QString& filename, bool loop = false );
 
 #endif
