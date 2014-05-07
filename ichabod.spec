@@ -3,7 +3,7 @@
 
 Summary: Ichabod Server
 Name: %{name}
-Version: %{expand:%%(cat version | awk '{print $3;}' | tr -d \")}
+Version: %{expand:%%(cat version.h | awk '{print $3;}' | tr -d \")}
 Release: 1
 License: Spec file is LGPL, binary rpm is gratis but non-distributable
 Group: Applications/System
