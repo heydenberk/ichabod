@@ -12,6 +12,7 @@
 
 #include "mongoose.h"
 
+#include "version.h"
 #include "conv.h"
 
 int g_verbosity = 0;
@@ -178,6 +179,7 @@ int main(int argc, char *argv[])
     QStringList args = app.arguments();
     QRegExp rxPort("--port=([0-9]{1,})");
     QRegExp rxVerbose("--verbosity=([0-9]{1,})");
+    QRegExp rxVersion("--version");
 
     for (int i = 1; i < args.size(); ++i) {
         if (rxPort.indexIn(args.at(i)) != -1 )
@@ -187,6 +189,11 @@ int main(int argc, char *argv[])
         else if (rxVerbose.indexIn(args.at(i)) != -1 ) 
         {
             g_verbosity = rxVerbose.cap(1).toInt();
+        }
+        else if (rxVersion.indexIn(args.at(i)) != -1 ) 
+        {
+            std::cout << "ichabod version " << ICHABOD_VERSION << std::endl;
+            return 0;
         }
         else 
         {

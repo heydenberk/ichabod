@@ -6,8 +6,6 @@ setup_build_env.sh
 
 source common.sh
 
-VERSION=`cat version`
-
 ./gen.py
 
 pushd wkhtmltopdf/static-build/centos
