@@ -1,10 +1,20 @@
 #!/bin/bash
 
-setup_build_env.sh
+set -e
+function error_handler() {
+    echo "Error during build!"
+    exit 666
+}
+ 
+trap error_handler EXIT
 
-./build_giflib.sh
+./setup_build_env.sh
+
+# linking directly to source for now
+#./build_giflib.sh
 
 source common.sh
+subm
 
 ./gen.py
 
@@ -15,6 +25,6 @@ popd
 wkhtmltopdf/static-build/centos/qt/bin/qmake ichabod.pro
 make
 
-archive_src.sh
+./archive_src.sh
 
-build_rpm.sh
+./build_rpm.sh
