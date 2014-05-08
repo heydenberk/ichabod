@@ -204,8 +204,12 @@ int main(int argc, char *argv[])
 
     struct mg_server *server = mg_create_server(NULL, ev_handler);
 
-    mg_set_option(server, "listening_port", QString::number(port).toLocal8Bit().constData());
-
+    const char * err = mg_set_option(server, "listening_port", QString::number(port).toLocal8Bit().constData());
+    if ( err )
+    {
+        std::cerr << "Cannot bind to port:" << port << " [" << err << "], exiting." << std::endl;
+        return -1;
+    }
     if ( g_verbosity )
     {
         std::cout << "Starting on port " << mg_get_option(server, "listening_port") << std::endl;
