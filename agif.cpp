@@ -70,24 +70,17 @@ bool gifWrite ( const QVector<QImage> & images, const QVector<int>& delays, cons
     
     if ( loop )
     {
+        unsigned char nsle[12] = "NETSCAPE2.0";
+        unsigned char subblock[3];
         int loop_count = 0;
-        char subblock[3];
-        if (EGifPutExtensionLeader(gif, APPLICATION_EXT_FUNC_CODE) == GIF_ERROR) 
-        {
-            qCritical("EGifPutExtensionLeader returned error");
-            return false;
-        }
         subblock[0] = 1;
-        subblock[2] = loop_count % 256;
-        subblock[1] = loop_count / 256;
-        if (EGifPutExtensionBlock(gif, 3, subblock) == GIF_ERROR) 
-        {
-            qCritical("EGifPutExtensionBlock returned error");
-            return false;
-        }
-        if (EGifPutExtensionTrailer(gif) == GIF_ERROR) 
-        {
-            qCritical("EGifPutExtensionTrailer returned error");
+        subblock[1] = loop_count % 256;
+        subblock[2] = loop_count / 256;
+        if (EGifPutExtensionLeader(gif, APPLICATION_EXT_FUNC_CODE) == GIF_ERROR
+            || EGifPutExtensionBlock(gif, 11, nsle) == GIF_ERROR
+            || EGifPutExtensionBlock(gif, 3, subblock) == GIF_ERROR
+            || EGifPutExtensionTrailer(gif) == GIF_ERROR) {
+            qCritical("Error writing loop extension");
             return false;
         }
     }
