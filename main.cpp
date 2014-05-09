@@ -60,21 +60,33 @@ static int handle_001(struct mg_connection *conn, IchabodSettings& settings)
     return MG_TRUE;
 }
 
-static int handle_002(struct mg_connection *conn, IchabodSettings& settings)
+static void send_headers(struct mg_connection* conn)
 {
     mg_send_header(conn, "Content-Type", "application/json");
     static const char kszFormat[] = "ddd, dd MMM yyyy HH:mm:ss 'GMT'";
     QDateTime now = QDateTime::currentDateTime();
     mg_send_header(conn, "Date", now.toString(kszFormat).toLocal8Bit().constData());
+    mg_send_header(conn, "Server", QString("%1 %2").arg(ICHABOD_NAME).arg(ICHABOD_VERSION).toLocal8Bit().constData());
+}
+
+static int handle_002(struct mg_connection *conn, IchabodSettings& settings)
+{
+    send_headers(conn);
     if ( !settings.loadPage.runScript.size() )
     {
         return send_error(conn, "Internal error: no scripts");
     }
-    mg_send_header(conn, "Server", QString("%1 %2").arg(ICHABOD_NAME).arg(ICHABOD_VERSION).toLocal8Bit().constData());
     IchabodConverter converter(settings);
     QString result = converter.convert();
     QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, result);
     mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
+    return MG_TRUE;
+}
+
+static int handle_health(struct mg_connection *conn)
+{
+    send_headers(conn);
+    mg_send_data(conn, "[]", 2);
     return MG_TRUE;
 }
 
@@ -88,6 +100,17 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
 {
     if (ev == MG_REQUEST) 
     {
+        QString canonical_path = "/";
+        QStringList pathParts = QString(conn->uri).split("/", QString::SkipEmptyParts);
+        if ( pathParts.size() )
+        {
+            canonical_path = pathParts.last();
+        }
+        if ( canonical_path == "health" )
+        {
+            return handle_health(conn);
+        }
+
         QString format = get_var(conn, "format");
         QString html = get_var(conn, "html");
         QString js = get_var(conn, "js");
@@ -158,45 +181,29 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             std::cout << conn->uri << std::endl;
         }
 
-        QStringList pathParts = QString(conn->uri).split("/", QString::SkipEmptyParts);
-        if ( pathParts.size() )
+        if ( canonical_path == "002" )
         {
-            QString path = pathParts.last();
-            if (path == "evaluate" )
-            {
-                if ( js.isEmpty() )
-                {
-                    return send_error(conn, "Nothing to evaluate");                
-                }
-                QList<QString> scripts;
-                scripts.append("(function(){ichabod.saveToOutput();})()");
-                scripts.append(js);
-                settings.loadPage.runScript = scripts;
-                return handle_001(conn, settings);
-            }
-            else if (path == "rasterize" || path == "001")
-            {
-                QList<QString> scripts;
-                scripts.append("(function(){ichabod.saveToOutput();})()");
-                settings.loadPage.runScript = scripts;
-                return handle_001(conn, settings);            
-            }
-            else if (path == "002")
-            {
-                return handle_002(conn, settings);
-            }
-            else if ( path.length() )
-            {
-                return send_error(conn, "Bad endpoint");
-            }
+            return handle_002(conn, settings);
         }
-
-        //QDateTime now = QDateTime::currentDateTime();
-        //if ( g_verbosity )
-        //{
-        //    std::cout << "elapsed (msec):" << now.msecsTo(QDateTime::currentDateTime()) << std::endl;
-        //}
-
+        if ( canonical_path == "evaluate" )
+        {
+            if ( js.isEmpty() )
+            {
+                return send_error(conn, "Nothing to evaluate");                
+            }
+            QList<QString> scripts;
+            scripts.append("(function(){ichabod.saveToOutput();})()");
+            scripts.append(js);
+            settings.loadPage.runScript = scripts;
+            return handle_001(conn, settings);
+        }
+        if ( canonical_path == "rasterize" || canonical_path == "001" )
+        {
+            QList<QString> scripts;
+            scripts.append("(function(){ichabod.saveToOutput();})()");
+            settings.loadPage.runScript = scripts;
+            return handle_001(conn, settings);            
+        }
         return handle_default(conn, settings);
     } 
     else if (ev == MG_AUTH) 
