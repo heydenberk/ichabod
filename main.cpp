@@ -86,7 +86,19 @@ static int handle_002(struct mg_connection *conn, IchabodSettings& settings)
 static int handle_health(struct mg_connection *conn)
 {
     send_headers(conn);
-    mg_send_data(conn, "[]", 2);
+    char health[4] = {0xF0, 0x9F, 0x91, 0xBB};
+    QString vigor = get_var(conn, "vigor");
+    if ( vigor.length() )
+    {
+        int v = vigor.toInt();
+        if ( v > 100 ) { v = 100; }
+        if ( v < 0 ) { v = 1; }
+        for ( int i = 0; i<v; ++i)
+        {
+            mg_send_data(conn, health, 4);
+        }
+    }
+    mg_send_data(conn, "", 0);
     return MG_TRUE;
 }
 
