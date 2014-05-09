@@ -154,13 +154,13 @@ void IchabodConverter::snapshotPage(int msec_delay)
 
 void IchabodConverter::saveToOutput()
 {
-    if ( m_settings.verbosity > 1 )
-    {
-        std::cout << "       images: " << m_images.size() << std::endl;
-    }
     if ( !m_images.size() )
     {
         snapshotPage();
+    }
+    if ( m_settings.verbosity > 1 )
+    {
+        std::cout << "       images: " << m_images.size() << std::endl;
     }
     if ( m_settings.fmt == "gif" )
     {
@@ -209,7 +209,12 @@ void IchabodConverter::debugSettings(bool success_status)
             fil_read.open(QIODevice::ReadOnly);
             QByteArray arr = fil_read.readAll();
             std::cout << "      html: " << QString(arr) << std::endl;
-            std::cout << "        js: " << m_settings.loadPage.runScript.at(0) << std::endl;
+            for( QList<QString>::const_iterator it = m_settings.loadPage.runScript.begin();
+                 it != m_settings.loadPage.runScript.end();
+                 ++it )
+            {
+                std::cout << "        js: " << *it << std::endl;
+            }
         }
     }
 }

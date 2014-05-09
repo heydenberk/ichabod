@@ -1,6 +1,7 @@
 #include <iostream>
 
 #include <QApplication>
+#include <QString>
 #include <QtCore>
 #include <QTemporaryFile>
 #include <QTextStream>
@@ -14,6 +15,8 @@
 
 #include "version.h"
 #include "conv.h"
+
+#define ICHABOD_NAME "ichabod"
 
 int g_verbosity = 0;
 
@@ -43,6 +46,43 @@ static QString get_var( struct mg_connection *conn, const char* var_name )
     return QString(data);
 }
 
+static int handle_001(struct mg_connection *conn, IchabodSettings& settings)
+{
+    mg_send_header(conn, "Content-Type", "application/json");
+    if ( !settings.loadPage.runScript.size() )
+    {
+        return send_error(conn, "Internal error: no scripts");
+    }
+    IchabodConverter converter(settings);
+    QString result = converter.convert();
+    QString json = QString("{\"path\": \"%1\", \"result\": \"%2\"}").arg(settings.out, result);
+    mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
+    return MG_TRUE;
+}
+
+static int handle_002(struct mg_connection *conn, IchabodSettings& settings)
+{
+    mg_send_header(conn, "Content-Type", "application/json");
+    static const char kszFormat[] = "ddd, dd MMM yyyy HH:mm:ss 'GMT'";
+    QDateTime now = QDateTime::currentDateTime();
+    mg_send_header(conn, "Date", now.toString(kszFormat).toLocal8Bit().constData());
+    if ( !settings.loadPage.runScript.size() )
+    {
+        return send_error(conn, "Internal error: no scripts");
+    }
+    mg_send_header(conn, "Server", QString("%1 %2").arg(ICHABOD_NAME).arg(ICHABOD_VERSION).toLocal8Bit().constData());
+    IchabodConverter converter(settings);
+    QString result = converter.convert();
+    QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, result);
+    mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
+    return MG_TRUE;
+}
+
+static int handle_default(struct mg_connection *conn, IchabodSettings& settings)
+{
+    return handle_002(conn, settings);
+}
+
 // handler for all incoming connections
 static int ev_handler(struct mg_connection *conn, enum mg_event ev) 
 {
@@ -59,7 +99,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
 
         if ( !rasterizer.length() )
         {
-            rasterizer = "ichabod";
+            rasterizer = ICHABOD_NAME;
         }
         if ( !output.length() )
         {
@@ -109,56 +149,55 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.screenWidth = width;
         settings.screenHeight = height;
         settings.transparent = true;
-        // check endpoint and scripts
-        QStringList pathParts = QString(conn->uri).split("/", QString::SkipEmptyParts);
-        if ( pathParts.isEmpty() )
-        {
-            return send_error(conn, "Bad endpoint");
-        }
-        QString path = pathParts.last();
-        if (path == "evaluate") 
-        {
-            if ( js.isEmpty() )
-            {
-                return send_error(conn, "Nothing to evaluate");                
-            }
-        }
-        else if (path == "rasterize")
-        {
-            if ( js.isEmpty() )
-            {
-                // backwards compatibility
-                js = QString("(function(){%1.saveToOutput();})()").arg(settings.rasterizer);
-            }
-        }
-        else
-        {
-            return send_error(conn, "Bad endpoint");
-        }
         QList<QString> scripts;
         scripts.append(js);
-        if ( !scripts.size() )
-        {
-            return send_error(conn, "Internal error: no scripts");
-        }
         settings.loadPage.runScript = scripts;
 
-        mg_send_header(conn, "Content-Type", "application/json");
         if ( g_verbosity )
         {
             std::cout << conn->uri << std::endl;
         }
 
-        IchabodConverter converter(settings);
-        QDateTime now = QDateTime::currentDateTime();
-        QString result = converter.convert();
-        if ( g_verbosity )
+        QStringList pathParts = QString(conn->uri).split("/", QString::SkipEmptyParts);
+        if ( pathParts.size() )
         {
-            std::cout << "elapsed (msec):" << now.msecsTo(QDateTime::currentDateTime()) << std::endl;
+            QString path = pathParts.last();
+            if (path == "evaluate" )
+            {
+                if ( js.isEmpty() )
+                {
+                    return send_error(conn, "Nothing to evaluate");                
+                }
+                QList<QString> scripts;
+                scripts.append("(function(){ichabod.saveToOutput();})()");
+                scripts.append(js);
+                settings.loadPage.runScript = scripts;
+                return handle_001(conn, settings);
+            }
+            else if (path == "rasterize" || path == "001")
+            {
+                QList<QString> scripts;
+                scripts.append("(function(){ichabod.saveToOutput();})()");
+                settings.loadPage.runScript = scripts;
+                return handle_001(conn, settings);            
+            }
+            else if (path == "002")
+            {
+                return handle_002(conn, settings);
+            }
+            else if ( path.length() )
+            {
+                return send_error(conn, "Bad endpoint");
+            }
         }
-        QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, result);
-        mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
-        return MG_TRUE;
+
+        //QDateTime now = QDateTime::currentDateTime();
+        //if ( g_verbosity )
+        //{
+        //    std::cout << "elapsed (msec):" << now.msecsTo(QDateTime::currentDateTime()) << std::endl;
+        //}
+
+        return handle_default(conn, settings);
     } 
     else if (ev == MG_AUTH) 
     {
@@ -192,7 +231,7 @@ int main(int argc, char *argv[])
         }
         else if (rxVersion.indexIn(args.at(i)) != -1 ) 
         {
-            std::cout << "ichabod version " << ICHABOD_VERSION << std::endl;
+            std::cout << ICHABOD_NAME << " version " << ICHABOD_VERSION << std::endl;
             return 0;
         }
         else 

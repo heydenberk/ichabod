@@ -17,7 +17,7 @@ class IchabodConverter: public wkhtmltopdf::ImageConverter
 {
     Q_OBJECT
 public:
-    IchabodConverter(IchabodSettings & settings, const QString * data=NULL);
+    IchabodConverter(IchabodSettings & settings, const QString * data=0);
     ~IchabodConverter();
 
     QString convert();

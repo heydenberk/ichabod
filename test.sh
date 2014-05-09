@@ -27,27 +27,58 @@ function die()
     exit 666    
 }
 
-# simple image
-HELLO=$(curl -s -X POST http://localhost:$PORT/rasterize --data "html=<html><head></head><body style='background-color: red;'><div style='background-color: blue; color: white;'>helloworld</div></body></html>&width=100&height=100&format=png&output=$HELLO_FILE")
-HELLO_EXPECTED='{"path": "'$HELLO_FILE'", "result": }'
-if [ "$HELLO" != "$HELLO_EXPECTED" ]; then
-    die "Invalid hello world result: [$HELLO] expected: [$HELLO_EXPECTED]"
-fi
-if [ ! -s $HELLO_FILE ]; then
-    die "Hello world result file missing: [$HELLO_FILE]"
-fi
+function test001()
+{
+    # Version 0.0.1 tests
 
-# animated image
-ANIM=$(curl -s -X POST http://localhost:$PORT/rasterize --data "html=<html><head></head><body style='background-color: red;'><div id='word' style='background-color: blue; color: darkgrey;'>hello</div></body></html>&width=100&height=100&format=gif&output=$ANIM_FILE&js=(function(){ichabod.setTransparent(0); ichabod.snapshotPage(); document.getElementById('word').innerHTML='world'; ichabod.snapshotPage(); ichabod.saveToOutput(); return 42;})();")
-ANIM_EXPECTED='{"path": "'$ANIM_FILE'", "result": 42}'
-if [ "$ANIM" != "$ANIM_EXPECTED" ]; then
-    die "Invalid animated result: [$ANIM] expected: [$ANIM_EXPECTED]"
-fi
-if [ ! -s $ANIM_FILE ]; then
-    die "Animated result file missing: [$ANIM_FILE]"
-fi
+    # simple image
+    HELLO=$(curl -s -X POST http://localhost:$PORT/rasterize --data "html=<html><head></head><body style='background-color: red;'><div style='background-color: blue; color: white;'>helloworld</div></body></html>&width=100&height=100&format=png&output=$HELLO_FILE")
+    HELLO_EXPECTED='{"path": "'$HELLO_FILE'", "result": ""}'
+    if [ "$HELLO" != "$HELLO_EXPECTED" ]; then
+        die "Invalid hello world result: [$HELLO] expected: [$HELLO_EXPECTED]"
+    fi
+    if [ ! -s $HELLO_FILE ]; then
+        die "Hello world result file missing: [$HELLO_FILE]"
+    fi
 
+    # animated image
+    ANIM=$(curl -s -X POST http://localhost:$PORT/evaluate --data "html=<html><head></head><body style='background-color: red;'><div id='word' style='background-color: blue; color: darkgrey;'>hello</div></body></html>&width=100&height=100&format=gif&output=$ANIM_FILE&js=(function(){ichabod.setTransparent(0); ichabod.snapshotPage(); document.getElementById('word').innerHTML='world'; ichabod.snapshotPage(); ichabod.saveToOutput(); return 42;})();")
+    ANIM_EXPECTED='{"path": "'$ANIM_FILE'", "result": "42"}'
+    if [ "$ANIM" != "$ANIM_EXPECTED" ]; then
+        die "Invalid animated result: [$ANIM] expected: [$ANIM_EXPECTED]"
+    fi
+    if [ ! -s $ANIM_FILE ]; then
+        die "Animated result file missing: [$ANIM_FILE]"
+    fi
+}
 
+function test002()
+{
+
+    # Version 0.0.2 tests
+
+    # simple image
+    HELLO=$(curl -s -X POST http://localhost:$PORT/ --data "html=<html><head></head><body style='background-color: red;'><div style='background-color: blue; color: white;'>helloworld</div></body></html>&width=100&height=100&format=png&output=$HELLO_FILE")
+    HELLO_EXPECTED='{"path": "'$HELLO_FILE'", "result": }'
+    if [ "$HELLO" != "$HELLO_EXPECTED" ]; then
+        die "Invalid hello world result: [$HELLO] expected: [$HELLO_EXPECTED]"
+    fi
+    if [ ! -s $HELLO_FILE ]; then
+        die "Hello world result file missing: [$HELLO_FILE]"
+    fi
+
+    # animated image
+    ANIM=$(curl -s -X POST http://localhost:$PORT/ --data "html=<html><head></head><body style='background-color: red;'><div id='word' style='background-color: blue; color: darkgrey;'>hello</div></body></html>&width=100&height=100&format=gif&output=$ANIM_FILE&js=(function(){ichabod.setTransparent(0); ichabod.snapshotPage(); document.getElementById('word').innerHTML='world'; ichabod.snapshotPage(); ichabod.saveToOutput(); return 42;})();")
+    ANIM_EXPECTED='{"path": "'$ANIM_FILE'", "result": 42}'
+    if [ "$ANIM" != "$ANIM_EXPECTED" ]; then
+        die "Invalid animated result: [$ANIM] expected: [$ANIM_EXPECTED]"
+    fi
+    if [ ! -s $ANIM_FILE ]; then
+        die "Animated result file missing: [$ANIM_FILE]"
+    fi
+}
+
+test001
+test002
 cleanup
-
 echo "Testing successful."
