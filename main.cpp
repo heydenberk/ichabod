@@ -34,7 +34,7 @@ static int send_error(struct mg_connection* conn, const char* err)
 // WARNING: this function is not re-entrant
 static QString get_var( struct mg_connection *conn, const char* var_name )
 {
-    static char data[2097152];
+    static char data[20971520];
     int r = mg_get_var(conn, var_name, data, sizeof(data));
     switch( r )
     {
