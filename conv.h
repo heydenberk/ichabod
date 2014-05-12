@@ -6,6 +6,7 @@
 #include <wkhtmltox/imageconverter.hh>
 #include <wkhtmltox/utilities.hh>
 #include <QWebPage>
+#include <utility>
 
 struct IchabodSettings : public wkhtmltopdf::settings::ImageGlobal 
 {
@@ -20,7 +21,7 @@ public:
     IchabodConverter(IchabodSettings & settings, const QString * data=0);
     ~IchabodConverter();
 
-    QString convert();
+    std::pair<QString,QVector<QString> > convert();
 public slots:
     void setTransparent( bool t );
     void setQuality( int q );
@@ -31,12 +32,14 @@ public slots:
 
 private slots:
     void slotJavascriptEnvironment(QWebPage* page);
+    void slotJavascriptWarning(QString s);
 private:
     void debugSettings(bool success_status);
     IchabodSettings m_settings;
     QWebPage* m_activePage;
     QVector<QImage> m_images;
     QVector<int> m_delays;
+    QVector<QString> m_warnings;
 };
 
 #endif

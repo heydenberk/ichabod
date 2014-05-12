@@ -54,8 +54,8 @@ static int handle_001(struct mg_connection *conn, IchabodSettings& settings)
         return send_error(conn, "Internal error: no scripts");
     }
     IchabodConverter converter(settings);
-    QString result = converter.convert();
-    QString json = QString("{\"path\": \"%1\", \"result\": \"%2\"}").arg(settings.out, result);
+    std::pair<QString,QVector<QString> > result = converter.convert();
+    QString json = QString("{\"path\": \"%1\", \"result\": \"%2\"}").arg(settings.out, result.first);
     mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
     return MG_TRUE;
 }
@@ -77,11 +77,37 @@ static int handle_002(struct mg_connection *conn, IchabodSettings& settings)
         return send_error(conn, "Internal error: no scripts");
     }
     IchabodConverter converter(settings);
-    QString result = converter.convert();
-    QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, result);
+    std::pair<QString,QVector<QString> > result = converter.convert();
+    QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, result.first);
     mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
     return MG_TRUE;
 }
+
+static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
+{
+    send_headers(conn);
+    if ( !settings.loadPage.runScript.size() )
+    {
+        return send_error(conn, "Internal error: no scripts");
+    }
+    IchabodConverter converter(settings);
+    std::pair<QString,QVector<QString> > result = converter.convert();
+    QString warn;
+    for( QVector<QString>::iterator it = result.second.begin();
+         it != result.second.end();
+         ++it )
+    {
+        warn += QString("\"%1\"").arg(*it);
+        if ( it != result.second.begin() )
+        {
+            warn += ",";
+        }
+    }
+    QString json = QString("{\"path\": \"%1\", \"result\": %2, \"warnings\": [%3]}").arg(settings.out, result.first, warn);
+    mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
+    return MG_TRUE;
+}
+
 
 static int handle_health(struct mg_connection *conn)
 {
@@ -104,7 +130,7 @@ static int handle_health(struct mg_connection *conn)
 
 static int handle_default(struct mg_connection *conn, IchabodSettings& settings)
 {
-    return handle_002(conn, settings);
+    return handle_003(conn, settings);
 }
 
 // handler for all incoming connections
@@ -184,6 +210,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.screenWidth = width;
         settings.screenHeight = height;
         settings.transparent = true;
+        settings.loadPage.debugJavascript = true;
         QList<QString> scripts;
         scripts.append(js);
         settings.loadPage.runScript = scripts;
@@ -193,6 +220,10 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             std::cout << conn->uri << std::endl;
         }
 
+        if ( canonical_path == "003" )
+        {
+            return handle_003(conn, settings);
+        }
         if ( canonical_path == "002" )
         {
             return handle_002(conn, settings);

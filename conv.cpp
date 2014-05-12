@@ -20,6 +20,7 @@ IchabodConverter::IchabodConverter(IchabodSettings & s, const QString * data)
     , m_activePage(0)
 {
     connect(this, SIGNAL(javascriptEnvironment(QWebPage*)), this, SLOT(slotJavascriptEnvironment(QWebPage*)));
+    connect(this, SIGNAL(warning(QString)), this, SLOT(slotJavascriptWarning(QString)));
 
     QObject::connect(this, SIGNAL(checkboxSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxSvg(const QString &)));
     QObject::connect(this, SIGNAL(checkboxCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxCheckedSvg(const QString &)));
@@ -62,6 +63,11 @@ void IchabodConverter::slotJavascriptEnvironment(QWebPage* page)
     m_activePage = page;
     m_activePage->mainFrame()->addToJavaScriptWindowObject(m_settings.rasterizer, 
                                                            this);
+}
+
+void IchabodConverter::slotJavascriptWarning(QString s )
+{
+    m_warnings.push_back( s );
 }
 
 void IchabodConverter::snapshotPage(int msec_delay)
@@ -202,6 +208,12 @@ void IchabodConverter::debugSettings(bool success_status)
             QImage img(m_settings.out, m_settings.fmt.toLocal8Bit().constData());
             std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
             std::cout << " script result: " << scriptResult() << std::endl;
+            for( QVector<QString>::iterator it = m_warnings.begin();
+                 it != m_warnings.end();
+                 ++it )
+            {
+                std::cout << "       warning: " << *it << std::endl;
+            }
         }
         if ( m_settings.verbosity > 3 )
         {
@@ -219,12 +231,14 @@ void IchabodConverter::debugSettings(bool success_status)
     }
 }
 
-QString IchabodConverter::convert()
+std::pair<QString,QVector<QString> > IchabodConverter::convert()
 {
     m_images.clear();
     m_delays.clear();
+    m_warnings.clear();
     wkhtmltopdf::ProgressFeedback feedback(true, *this);
     bool success = wkhtmltopdf::ImageConverter::convert();  
     debugSettings(success);
-    return scriptResult();
+    QString res = scriptResult();
+    return std::make_pair(res,m_warnings);
 }
