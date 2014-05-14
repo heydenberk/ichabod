@@ -1,0 +1,13 @@
+2014-05-xx version 0.0.3
+	* larger buffer for POST parameters
+	* report javascript warnings to client
+	* expose looping control to javascript
+
+2014-05-09 version 0.0.2
+	* rasterization control in javascript
+	* added tests
+	* initial gif support
+	* added /health endpoint
+
+2014-05-05 version 0.0.1
+	* Initial version
