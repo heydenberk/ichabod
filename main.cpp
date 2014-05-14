@@ -210,6 +210,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.screenWidth = width;
         settings.screenHeight = height;
         settings.transparent = true;
+        settings.looping = false;
         settings.loadPage.debugJavascript = true;
         QList<QString> scripts;
         scripts.append(js);

@@ -12,6 +12,7 @@ struct IchabodSettings : public wkhtmltopdf::settings::ImageGlobal
 {
     int verbosity;
     QString rasterizer;
+    bool looping;
 };
 
 class IchabodConverter: public wkhtmltopdf::ImageConverter 
@@ -27,6 +28,7 @@ public slots:
     void setQuality( int q );
     void setScreen( int w, int h );
     void setFormat( const QString& fmt );
+    void setLooping( bool l );
     void snapshotPage( int msec_delay = 100);
     void saveToOutput();
 

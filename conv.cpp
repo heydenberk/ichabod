@@ -53,6 +53,11 @@ void IchabodConverter::setFormat( const QString& fmt )
     m_settings.fmt = fmt;
 }
 
+void IchabodConverter::setLooping( bool l )
+{
+    m_settings.looping = l;
+}
+
 void IchabodConverter::slotJavascriptEnvironment(QWebPage* page)
 {
     // register the current environment
@@ -170,7 +175,7 @@ void IchabodConverter::saveToOutput()
     }
     if ( m_settings.fmt == "gif" )
     {
-        gifWrite( m_images, m_delays, m_settings.out, true );
+        gifWrite( m_images, m_delays, m_settings.out, m_settings.looping );
     }
     else
     {
