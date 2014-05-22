@@ -205,7 +205,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.rasterizer = rasterizer;
         settings.fmt = format;
         settings.in = input;
-        settings.quality = 0;
+        settings.quality = 50; # reasonable size/speed tradeoff by default
         settings.out = output;
         settings.screenWidth = width;
         settings.screenHeight = height;
@@ -221,7 +221,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             std::cout << conn->uri << std::endl;
         }
 
-        if ( canonical_path == "003" )
+        if ( canonical_path == "004" || canonical_path == "003" )
         {
             return handle_003(conn, settings);
         }

@@ -1,4 +1,7 @@
-2014-05-xx version 0.0.3
+2014-05-22 version 0.0.4
+	* adjust quality settings for faster png saving
+
+2014-05-14 version 0.0.3
 	* larger buffer for POST parameters
 	* report javascript warnings to client
 	* expose looping control to javascript
