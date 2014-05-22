@@ -205,7 +205,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.rasterizer = rasterizer;
         settings.fmt = format;
         settings.in = input;
-        settings.quality = 50; # reasonable size/speed tradeoff by default
+        settings.quality = 50; // reasonable size/speed tradeoff by default
         settings.out = output;
         settings.screenWidth = width;
         settings.screenHeight = height;
