@@ -1,17 +1,28 @@
+#include <stdio.h>
 #include "agif.h"
 #include <gif_lib.h>
+#include "quant.h"
 
-// 
-void makeIndexedImage( QImage& img )
+#include <iostream>
+
+void makeIndexedImage( const QuantizeMethod method, QImage& img )
 {
-    // ensure the most artifact-free conversion possible
-    //img = img.convertToFormat(QImage::Format_Indexed8, Qt::ColorOnly | Qt::ThresholdDither );
-    img = img.convertToFormat(QImage::Format_Indexed8, Qt::ThresholdDither );
-    //img = img.convertToFormat(QImage::Format_Indexed8);
-    //img.save("/tmp/out_indexed8.png", "png", 100);
+    //img.save("/tmp/out_orig.png", "png", 50);
+    switch (method)
+    {
+    case QuantizeMethod_DIFFUSE:
+        img = img.convertToFormat(QImage::Format_Indexed8, Qt::DiffuseDither);
+        break;
+    case QuantizeMethod_THRESHOLD:
+        img = img.convertToFormat(QImage::Format_Indexed8, Qt::ThresholdDither);
+        break;
+    case QuantizeMethod_MEDIANCUT:
+        img = quantize_mediancut(img).convertToFormat( QImage::Format_Indexed8 );
+        break;
+    }
 }
 
-bool gifWrite ( const QVector<QImage> & images, const QVector<int>& delays, const QString& filename, bool loop )
+bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, const QVector<int>& delays, const QString& filename, bool loop )
 {
     if ( !images.size() )
     {
@@ -22,20 +33,18 @@ bool gifWrite ( const QVector<QImage> & images, const QVector<int>& delays, cons
         return false;
     }
     QImage first = images.at(0);
-    makeIndexedImage(first);
+    makeIndexedImage(method, first);
 
     // color table
     QVector<QRgb> colorTable = first.colorTable();
     ColorMapObject cmap;
     // numColors must be a power of 2
     int numColors = 1 << GifBitSize(first.colorCount());
-    //qDebug("numColors: %d", first.colorCount() );
-    //qDebug("numColors po2: %d", numColors );
     cmap.ColorCount = numColors;
     cmap.BitsPerPixel = first.depth();// should always be 8
     if ( cmap.BitsPerPixel != 8 )
     {
-        qCritical("Incorrect bit depth");
+        std::cerr << "Incorrect bit depth" << std::endl;
         return false;
     }
     GifColorType* colorValues = (GifColorType*)malloc(cmap.ColorCount * sizeof(GifColorType));
@@ -64,7 +73,7 @@ bool gifWrite ( const QVector<QImage> & images, const QVector<int>& delays, cons
 
     if (EGifPutScreenDesc(gif, first.width(), first.height(), 8, 0, &cmap) == GIF_ERROR)
     {
-        qCritical("EGifPutScreenDesc returned error");
+        std::cerr << "EGifPutScreenDesc returned error" << std::endl;
         return false;
     }
     
@@ -80,7 +89,7 @@ bool gifWrite ( const QVector<QImage> & images, const QVector<int>& delays, cons
             || EGifPutExtensionBlock(gif, 11, nsle) == GIF_ERROR
             || EGifPutExtensionBlock(gif, 3, subblock) == GIF_ERROR
             || EGifPutExtensionTrailer(gif) == GIF_ERROR) {
-            qCritical("Error writing loop extension");
+            std::cerr << "Error writing loop extension" << std::endl;
             return false;
         }
     }
@@ -89,9 +98,7 @@ bool gifWrite ( const QVector<QImage> & images, const QVector<int>& delays, cons
     {
         QImage toWrite(*it);
 
-        //toWrite.save("/tmp/out_original.png", "png", 0);
-
-        makeIndexedImage(toWrite);
+        makeIndexedImage(method, toWrite);
 
         // db more: transparent GIFs?
 
@@ -109,16 +116,18 @@ bool gifWrite ( const QVector<QImage> & images, const QVector<int>& delays, cons
         EGifPutExtension(gif, GRAPHICS_EXT_FUNC_CODE, 4, ExtStr);
 
         if (EGifPutImageDesc(gif, 0, 0, toWrite.width(), toWrite.height(), 0, &cmap) == GIF_ERROR)
-            qCritical("EGifPutImageDesc returned error");
+        {
+            std::cerr << "EGifPutImageDesc returned error" << std::endl;
+        }
         int lc = toWrite.height();
         //int llen = toWrite.bytesPerLine();
-        //qDebug("will write %d lines, %d bytes each", lc, llen);
+        //qDebug("will write %d lines, %d bytes each", lc, toWrite.width());
         for (int l = 0; l < lc; ++l)
         {
             uchar* line = toWrite.scanLine(l);
             if (EGifPutLine(gif, (GifPixelType*)line, toWrite.width()) == GIF_ERROR)
             {
-                qCritical("EGifPutLine returned error: %d", gif->Error);
+                std::cerr << "EGifPutLine returned error: " <<  gif->Error << std::endl;
             }
         }
     }

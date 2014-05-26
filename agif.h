@@ -3,7 +3,8 @@
 
 #include <QVector>
 #include <QImage>
+#include "quant.h"
 
-bool gifWrite ( const QVector<QImage> & images, const QVector<int>& delays, const QString& filename, bool loop = false );
+bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, const QVector<int>& delays, const QString& filename, bool loop = false );
 
 #endif

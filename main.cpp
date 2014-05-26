@@ -211,6 +211,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.screenHeight = height;
         settings.transparent = true;
         settings.looping = false;
+        settings.quantize_method = QuantizeMethod_MEDIANCUT;
         settings.loadPage.debugJavascript = true;
         QList<QString> scripts;
         scripts.append(js);
@@ -283,6 +284,15 @@ int main(int argc, char *argv[])
         else if (rxVersion.indexIn(args.at(i)) != -1 ) 
         {
             std::cout << ICHABOD_NAME << " version " << ICHABOD_VERSION << std::endl;
+            std::cout << "** The GIFLIB distribution is Copyright (c) 1997  Eric S. Raymond" << std::endl;
+            std::cout << "** ppmquant is Copyright (C) 1989, 1991 by Jef Poskanzer." << std::endl;
+            std::cout << "**" << std::endl;
+            std::cout << "** Permission to use, copy, modify, and distribute this software and its" << std::endl;
+            std::cout << "** documentation for any purpose and without fee is hereby granted, provided" << std::endl;
+            std::cout << "** that the above copyright notice appear in all copies and that both that" << std::endl;
+            std::cout << "** copyright notice and this permission notice appear in supporting" << std::endl;
+            std::cout << "** documentation.  This software is provided \"as is\" without express or" << std::endl;
+            std::cout << "** implied warranty." << std::endl;
             return 0;
         }
         else 

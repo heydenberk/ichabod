@@ -38,5 +38,6 @@ SOURCES += giflib/lib/dgif_lib.c giflib/lib/egif_lib.c giflib/lib/gifalloc.c gif
 
 # ichabod
 HEADERS += conv.h
-SOURCES += agif.cpp conv.cpp main.cpp
+SOURCES += agif.cpp conv.cpp main.cpp mediancut.cpp
+LIBS += -lnetpbm
 

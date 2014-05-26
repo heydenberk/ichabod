@@ -1,3 +1,6 @@
+2014-05-25 version 0.0.5
+	* incorporate ppmquant code for going from full-color to 8-bit gif
+	
 2014-05-22 version 0.0.4
 	* adjust quality settings for faster png saving
 
