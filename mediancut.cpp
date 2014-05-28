@@ -278,6 +278,7 @@ colorhist_vector mediancut( colorhist_vector chv, int colors, int sum, pixval ma
 
 QImage quantize_mediancut( const QImage& src )
 {
+    //std::cout << "quantize_mediancut" << std::endl;
     QByteArray bar;
     QBuffer buffer(&bar);
     buffer.open(QIODevice::WriteOnly);
@@ -291,7 +292,7 @@ QImage quantize_mediancut( const QImage& src )
     ppm_init( &argc, argv );
 
 
-    int floyd = 1;
+    int floyd = 0;
     long* thisrerr=0;
     long* nextrerr=0;
     long* thisgerr=0;
@@ -337,11 +338,10 @@ QImage quantize_mediancut( const QImage& src )
         }
         maxval = newmaxval;
     }
-    //std::cout << "colors found:" << colors << std::endl;
     /*
     ** Step 3: apply median-cut to histogram, making the new colormap.
     */
-    //std::cout <<  "choosing %d colors..." << newcolors << " maxval:" << maxval << std::endl;
+    //std::cout <<  "choosing %d colors..." << newcolors << " maxval:" << maxval << std::endl;    
     colormap = mediancut( chv, colors, rows * cols, maxval, newcolors );
     ppm_freecolorhist( chv );
 
@@ -352,7 +352,7 @@ QImage quantize_mediancut( const QImage& src )
         r1 = PPM_GETR( colormap[i].color );
         g1 = PPM_GETG( colormap[i].color );
         b1 = PPM_GETB( colormap[i].color );
-        std::cout << "colormap ind:" << i << " has color:" << r1 << "," << g1 << "," << b1 << std::endl;
+        //std::cout << "colormap ind:" << i << " has color:" << r1 << "," << g1 << "," << b1 << std::endl;
     }
     */
         
@@ -447,7 +447,7 @@ QImage quantize_mediancut( const QImage& src )
                 {
 		    if ( ppm_addtocolorhash( cht, pP, ind ) < 0 )
                     {
-                        std::cout << "out of memory adding to hash table, proceeding without it" << std::endl;
+                        std::cerr << "out of memory adding to hash table, proceeding without it" << std::endl;
 			usehash = 0;
                     }
                 }

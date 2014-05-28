@@ -211,7 +211,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.screenHeight = height;
         settings.transparent = true;
         settings.looping = false;
-        settings.quantize_method = QuantizeMethod_MEDIANCUT;
+        settings.quantize_method = QuantizeMethod_DIFFUSE;
         settings.loadPage.debugJavascript = true;
         QList<QString> scripts;
         scripts.append(js);

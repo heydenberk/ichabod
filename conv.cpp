@@ -68,10 +68,18 @@ void IchabodConverter::setQuantizeMethod( const QString& method )
     {
         m_settings.quantize_method = QuantizeMethod_THRESHOLD;
     }
+    if ( method == "ORDERED" )
+    {
+        m_settings.quantize_method = QuantizeMethod_ORDERED;
+    }
     if ( method == "MEDIANCUT" )
     {
         m_settings.quantize_method = QuantizeMethod_MEDIANCUT;
     }
+//     if ( method == "MAGICK" )
+//     {
+//         m_settings.quantize_method = QuantizeMethod_MAGICK;
+//     }
 }
 
 void IchabodConverter::slotJavascriptEnvironment(QWebPage* page)
@@ -151,8 +159,7 @@ void IchabodConverter::snapshotPage(int msec_delay)
         //?
     }
 
-    //image = QImage(rect.size(), QImage::Format_ARGB32_Premultiplied);
-    image = QImage(rect.size(), QImage::Format_RGB32);
+    image = QImage(rect.size(), QImage::Format_ARGB32_Premultiplied); // draw as fast as possible
     painter.begin(&image);
 
     if (m_settings.transparent) 
