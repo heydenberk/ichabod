@@ -1,3 +1,9 @@
+2014-05-28 version 0.0.5
+	* incorporate ppmquant code for going from full-color to 8-bit gif
+	* fix small memory leak during gif creation
+	* add different dithering/quantize options (DIFFUSE/ORDERED/THRESHOLD)
+	* initial version of MEDIANCUT quanitzation (slow)
+	
 2014-05-22 version 0.0.4
 	* adjust quality settings for faster png saving
 

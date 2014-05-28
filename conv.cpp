@@ -58,6 +58,30 @@ void IchabodConverter::setLooping( bool l )
     m_settings.looping = l;
 }
 
+void IchabodConverter::setQuantizeMethod( const QString& method )
+{
+    if ( method == "DIFFUSE" )
+    {
+        m_settings.quantize_method = QuantizeMethod_DIFFUSE;
+    }
+    if ( method == "THRESHOLD" )
+    {
+        m_settings.quantize_method = QuantizeMethod_THRESHOLD;
+    }
+    if ( method == "ORDERED" )
+    {
+        m_settings.quantize_method = QuantizeMethod_ORDERED;
+    }
+    if ( method == "MEDIANCUT" )
+    {
+        m_settings.quantize_method = QuantizeMethod_MEDIANCUT;
+    }
+//     if ( method == "MAGICK" )
+//     {
+//         m_settings.quantize_method = QuantizeMethod_MAGICK;
+//     }
+}
+
 void IchabodConverter::slotJavascriptEnvironment(QWebPage* page)
 {
     // register the current environment
@@ -135,7 +159,7 @@ void IchabodConverter::snapshotPage(int msec_delay)
         //?
     }
 
-    image = QImage(rect.size(), QImage::Format_ARGB32_Premultiplied);
+    image = QImage(rect.size(), QImage::Format_ARGB32_Premultiplied); // draw as fast as possible
     painter.begin(&image);
 
     if (m_settings.transparent) 
@@ -175,7 +199,7 @@ void IchabodConverter::saveToOutput()
     }
     if ( m_settings.fmt == "gif" )
     {
-        gifWrite( m_images, m_delays, m_settings.out, m_settings.looping );
+        gifWrite( m_settings.quantize_method, m_images, m_delays, m_settings.out, m_settings.looping );
     }
     else
     {

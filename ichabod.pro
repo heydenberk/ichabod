@@ -38,5 +38,10 @@ SOURCES += giflib/lib/dgif_lib.c giflib/lib/egif_lib.c giflib/lib/gifalloc.c gif
 
 # ichabod
 HEADERS += conv.h
-SOURCES += agif.cpp conv.cpp main.cpp
+SOURCES += agif.cpp conv.cpp main.cpp mediancut.cpp
+LIBS += -Wl,-Bstatic -lnetpbm -Wl,-Bdynamic 
+#INCLUDEPATH += /tmp/im/include/ImageMagick-6
+#LIBS += -L/tmp/im/lib -lMagick++-6.Q16 -lMagickWand-6.Q16 -lMagickCore-6.Q16
+
+
 

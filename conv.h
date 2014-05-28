@@ -7,12 +7,14 @@
 #include <wkhtmltox/utilities.hh>
 #include <QWebPage>
 #include <utility>
+#include "quant.h"
 
 struct IchabodSettings : public wkhtmltopdf::settings::ImageGlobal 
 {
     int verbosity;
     QString rasterizer;
     bool looping;
+    QuantizeMethod quantize_method;
 };
 
 class IchabodConverter: public wkhtmltopdf::ImageConverter 
@@ -31,6 +33,7 @@ public slots:
     void setLooping( bool l );
     void snapshotPage( int msec_delay = 100);
     void saveToOutput();
+    void setQuantizeMethod( const QString& method ); // see quant.h
 
 private slots:
     void slotJavascriptEnvironment(QWebPage* page);
