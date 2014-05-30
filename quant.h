@@ -12,6 +12,7 @@ enum QuantizeMethod
     QuantizeMethod_MEDIANCUT_FLOYD
 };
 
+QuantizeMethod toQuantizeMethod( const QString& s );
 QImage quantize_mediancut( const QImage& src, bool use_floyd );
 
 #endif

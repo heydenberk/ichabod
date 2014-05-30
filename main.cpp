@@ -16,10 +16,12 @@
 
 #include "version.h"
 #include "conv.h"
+#include "quant.h"
 
 #define ICHABOD_NAME "ichabod"
 
 int g_verbosity = 0;
+QString g_quantize = "MEDIANCUT";
 
 // output error and send error back to client
 static int send_error(struct mg_connection* conn, const char* err)
@@ -212,7 +214,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.screenHeight = height;
         settings.transparent = true;
         settings.looping = false;
-        settings.quantize_method = QuantizeMethod_MEDIANCUT;
+        settings.quantize_method = toQuantizeMethod( g_quantize );
         settings.loadPage.debugJavascript = true;
         QList<QString> scripts;
         scripts.append(js);
@@ -271,6 +273,7 @@ int main(int argc, char *argv[])
     QStringList args = app.arguments();
     QRegExp rxPort("--port=([0-9]{1,})");
     QRegExp rxVerbose("--verbosity=([0-9]{1,})");
+    QRegExp rxQuantize("--quantize=([a-zA-Z]{1,})");
     QRegExp rxVersion("--version");
 
     for (int i = 1; i < args.size(); ++i) {
@@ -281,6 +284,10 @@ int main(int argc, char *argv[])
         else if (rxVerbose.indexIn(args.at(i)) != -1 ) 
         {
             g_verbosity = rxVerbose.cap(1).toInt();
+        }
+        else if (rxQuantize.indexIn(args.at(i)) != -1 ) 
+        {
+            g_quantize = rxQuantize.cap(1);
         }
         else if (rxVersion.indexIn(args.at(i)) != -1 ) 
         {

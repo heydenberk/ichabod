@@ -8,6 +8,34 @@
 //#include "ppmcmap.h"
 #define MAXCOLORS 32767
 
+
+QuantizeMethod toQuantizeMethod( const QString& s )
+{
+    if ( s == "DIFFUSE" )
+    {
+        return QuantizeMethod_DIFFUSE;
+    }
+    if ( s == "THRESHOLD" )
+    {
+        return QuantizeMethod_THRESHOLD;
+    }
+    if ( s == "ORDERED" )
+    {
+        return QuantizeMethod_ORDERED;
+    }
+    if ( s == "MEDIANCUT" )
+    {
+        return QuantizeMethod_MEDIANCUT;
+    }
+    if ( s == "MEDIANCUT_FLOYD" )
+    {
+        return QuantizeMethod_MEDIANCUT_FLOYD;
+    }
+    std::cerr << "warning: unknown quantize method:" << s.toLocal8Bit().constData() << ", using MEDIANCUT" << std::endl;
+    return QuantizeMethod_MEDIANCUT;    
+}
+
+
 typedef struct box* box_vector;
 struct box
 {
