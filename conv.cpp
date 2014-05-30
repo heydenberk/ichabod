@@ -114,6 +114,7 @@ void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay 
                          crop["width"].toInt()+1, crop["height"].toInt() );
         if ( r.isValid() )
         {
+            r.adjust( -3, -3, 3, 3 ); // just a bit of padding
             if ( crop_rect.isValid() )
             {
                 crop_rect = crop_rect.united( r );
