@@ -6,6 +6,7 @@
 #include <wkhtmltox/imageconverter.hh>
 #include <wkhtmltox/utilities.hh>
 #include <QWebPage>
+#include <QRect>
 #include <utility>
 #include "quant.h"
 
@@ -32,6 +33,7 @@ public slots:
     void setFormat( const QString& fmt );
     void setLooping( bool l );
     void snapshotPage( int msec_delay = 100);
+    void snapshotElements( const QStringList& ids, int msec_delay = 100 );
     void saveToOutput();
     void setQuantizeMethod( const QString& method ); // see quant.h
 
@@ -44,7 +46,9 @@ private:
     QWebPage* m_activePage;
     QVector<QImage> m_images;
     QVector<int> m_delays;
+    QVector< QRect > m_crops;
     QVector<QString> m_warnings;
+    void internalSnapshot( int msec_delay, const QRect& crop );
 };
 
 #endif

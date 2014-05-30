@@ -7,18 +7,324 @@
 #include <cassert>
 #include <vector>
 #include <algorithm>
+#include <map>
 
-//#include "Magick++.h"
 #include <QColor>
 #include <QRgb>
+#include <QHash>
+#include <QMultiMap>
+#include <QPainter>
+#include <QVariant>
+
+typedef QList< QPair<QRgb, int> > QgsColorBox; //Color / number of pixels
+typedef QMultiMap< int, QgsColorBox > QgsColorBoxMap; // sum of pixels / color box
 
 
-/*
+bool redCompare( const QPair<QRgb, int>& c1, const QPair<QRgb, int>& c2 )
+{
+    return qRed( c1.first ) < qRed( c2.first );
+}
+
+bool greenCompare( const QPair<QRgb, int>& c1, const QPair<QRgb, int>& c2 )
+{
+    return qGreen( c1.first ) < qGreen( c2.first );
+}
+
+bool blueCompare( const QPair<QRgb, int>& c1, const QPair<QRgb, int>& c2 )
+{
+    return qBlue( c1.first ) < qBlue( c2.first );
+}
+
+bool alphaCompare( const QPair<QRgb, int>& c1, const QPair<QRgb, int>& c2 )
+{
+    return qAlpha( c1.first ) < qAlpha( c2.first );
+}
+
+bool minMaxRange( const QgsColorBox& colorBox, int& redRange, int& greenRange, int& blueRange, int& alphaRange )
+{
+    if ( colorBox.size() < 1 )
+    {
+        return false;
+    }
+
+    int rMin = INT_MAX;
+    int gMin = INT_MAX;
+    int bMin = INT_MAX;
+    int aMin = INT_MAX;
+    int rMax = INT_MIN;
+    int gMax = INT_MIN;
+    int bMax = INT_MIN;
+    int aMax = INT_MIN;
+
+    int currentRed = 0; int currentGreen = 0; int currentBlue = 0; int currentAlpha = 0;
+
+    QgsColorBox::const_iterator colorBoxIt = colorBox.constBegin();
+    for ( ; colorBoxIt != colorBox.constEnd(); ++colorBoxIt )
+    {
+        currentRed = qRed( colorBoxIt->first );
+        if ( currentRed > rMax )
+        {
+            rMax = currentRed;
+        }
+        if ( currentRed < rMin )
+        {
+            rMin = currentRed;
+        }
+
+        currentGreen = qGreen( colorBoxIt->first );
+        if ( currentGreen > gMax )
+        {
+            gMax = currentGreen;
+        }
+        if ( currentGreen < gMin )
+        {
+            gMin = currentGreen;
+        }
+
+        currentBlue = qBlue( colorBoxIt->first );
+        if ( currentBlue > bMax )
+        {
+            bMax = currentBlue;
+        }
+        if ( currentBlue < bMin )
+        {
+            bMin = currentBlue;
+        }
+
+        currentAlpha = qAlpha( colorBoxIt->first );
+        if ( currentAlpha > aMax )
+        {
+            aMax = currentAlpha;
+        }
+        if ( currentAlpha < aMin )
+        {
+            aMin = currentAlpha;
+        }
+    }
+
+    redRange = rMax - rMin;
+    greenRange = gMax - gMin;
+    blueRange = bMax - bMin;
+    alphaRange = aMax - aMin;
+    return true;
+}
+
+QRgb boxColor( const QgsColorBox& box, int boxPixels )
+{
+    double avRed = 0;
+    double avGreen = 0;
+    double avBlue = 0;
+    double avAlpha = 0;
+    QRgb currentColor;
+    int currentPixel;
+
+    double weight;
+
+    QgsColorBox::const_iterator colorBoxIt = box.constBegin();
+    for ( ; colorBoxIt != box.constEnd(); ++colorBoxIt )
+    {
+        currentColor = colorBoxIt->first;
+        currentPixel = colorBoxIt->second;
+        weight = ( double )currentPixel / boxPixels;
+        avRed += ( qRed( currentColor ) * weight );
+        avGreen += ( qGreen( currentColor ) * weight );
+        avBlue += ( qBlue( currentColor ) * weight );
+        avAlpha += ( qAlpha( currentColor ) * weight );
+    }
+
+    return qRgba( avRed, avGreen, avBlue, avAlpha );
+}
+
+
+
+void splitColorBox( QgsColorBox& colorBox, QgsColorBoxMap& colorBoxMap,
+                                           QMap<int, QgsColorBox>::iterator colorBoxMapIt )
+{
+
+    if ( colorBox.size() < 2 )
+    {
+        return; //need at least two colors for a split
+    }
+
+    //a,r,g,b ranges
+    int redRange = 0;
+    int greenRange = 0;
+    int blueRange = 0;
+    int alphaRange = 0;
+
+    if ( !minMaxRange( colorBox, redRange, greenRange, blueRange, alphaRange ) )
+    {
+        return;
+    }
+
+    //sort color box for a/r/g/b
+    if ( redRange >= greenRange && redRange >= blueRange && redRange >= alphaRange )
+    {
+        qSort( colorBox.begin(), colorBox.end(), redCompare );
+    }
+    else if ( greenRange >= redRange && greenRange >= blueRange && greenRange >= alphaRange )
+    {
+        qSort( colorBox.begin(), colorBox.end(), greenCompare );
+    }
+    else if ( blueRange >= redRange && blueRange >= greenRange && blueRange >= alphaRange )
+    {
+        qSort( colorBox.begin(), colorBox.end(), blueCompare );
+    }
+    else
+    {
+        qSort( colorBox.begin(), colorBox.end(), alphaCompare );
+    }
+
+    //get median
+    double halfSum = colorBoxMapIt.key() / 2.0;
+    int currentSum = 0;
+    int currentListIndex = 0;
+
+    QgsColorBox::iterator colorBoxIt = colorBox.begin();
+    for ( ; colorBoxIt != colorBox.end(); ++colorBoxIt )
+    {
+        currentSum += colorBoxIt->second;
+        if ( currentSum >= halfSum )
+        {
+            break;
+        }
+        ++currentListIndex;
+    }
+
+    if ( currentListIndex > ( colorBox.size() - 2 ) ) //if the median is contained in the last color, split one item before that
+    {
+        --currentListIndex;
+        currentSum -= colorBoxIt->second;
+    }
+    else
+    {
+        ++colorBoxIt; //the iterator needs to point behind the last item to remove
+    }
+
+    //do split: replace old color box, insert new one
+    QgsColorBox newColorBox1 = colorBox.mid( 0, currentListIndex + 1 );
+    colorBoxMap.insert( currentSum, newColorBox1 );
+
+    colorBox.erase( colorBox.begin(), colorBoxIt );
+    QgsColorBox newColorBox2 = colorBox;
+    colorBoxMap.erase( colorBoxMapIt );
+    colorBoxMap.insert( halfSum * 2.0 - currentSum, newColorBox2 );
+}
+
+
+void imageColors( QHash<QRgb, int>& colors, const QImage& image )
+{
+    colors.clear();
+    int width = image.width();
+    int height = image.height();
+
+    const QRgb* currentScanLine = 0;
+    QHash<QRgb, int>::iterator colorIt;
+    for ( int i = 0; i < height; ++i )
+    {
+        currentScanLine = ( const QRgb* )( image.scanLine( i ) );
+        for ( int j = 0; j < width; ++j )
+        {
+            colorIt = colors.find( currentScanLine[j] );
+            if ( colorIt == colors.end() )
+            {
+                colors.insert( currentScanLine[j], 1 );
+            }
+            else
+            {
+                colorIt.value()++;
+            }
+        }
+    }
+}
+
+void medianCut( QVector<QRgb>& colorTable, int nColors, const QImage& inputImage )
+{
+    QHash<QRgb, int> inputColors;
+    imageColors( inputColors, inputImage );
+
+    if ( inputColors.size() <= nColors ) //all the colors in the image can be mapped to one palette color
+    {
+        colorTable.resize( inputColors.size() );
+        int index = 0;
+        QHash<QRgb, int>::const_iterator inputColorIt = inputColors.constBegin();
+        for ( ; inputColorIt != inputColors.constEnd(); ++inputColorIt )
+        {
+            colorTable[index] = inputColorIt.key();
+            ++index;
+        }
+        return;
+    }
+
+    //create first box
+    QgsColorBox firstBox; //QList< QPair<QRgb, int> >
+    int firstBoxPixelSum = 0;
+    QHash<QRgb, int>::const_iterator inputColorIt = inputColors.constBegin();
+    for ( ; inputColorIt != inputColors.constEnd(); ++inputColorIt )
+    {
+        firstBox.push_back( qMakePair( inputColorIt.key(), inputColorIt.value() ) );
+        firstBoxPixelSum += inputColorIt.value();
+    }
+
+    QgsColorBoxMap colorBoxMap; //QMultiMap< int, ColorBox >
+    colorBoxMap.insert( firstBoxPixelSum, firstBox );
+    QMap<int, QgsColorBox>::iterator colorBoxMapIt = colorBoxMap.end();
+
+    //split boxes until number of boxes == nColors or all the boxes have color count 1
+    bool allColorsMapped = false;
+    while ( colorBoxMap.size() < nColors )
+    {
+        //start at the end of colorBoxMap and pick the first entry with number of colors < 1
+        colorBoxMapIt = colorBoxMap.end();
+        while ( true )
+        {
+            --colorBoxMapIt;
+            if ( colorBoxMapIt.value().size() > 1 )
+            {
+                splitColorBox( colorBoxMapIt.value(), colorBoxMap, colorBoxMapIt );
+                break;
+            }
+            if ( colorBoxMapIt == colorBoxMap.begin() )
+            {
+                allColorsMapped = true;
+                break;
+            }
+        }
+
+        if ( allColorsMapped )
+        {
+            break;
+        }
+        else
+        {
+            continue;
+        }
+    }
+
+    //get representative colors for the boxes
+    int index = 0;
+    colorTable.resize( colorBoxMap.size() );
+    QgsColorBoxMap::const_iterator colorBoxIt = colorBoxMap.constBegin();
+    for ( ; colorBoxIt != colorBoxMap.constEnd(); ++colorBoxIt )
+    {
+        colorTable[index] = boxColor( colorBoxIt.value(), colorBoxIt.key() );
+        ++index;
+    }
+}
+
+
 std::map<QRgb,int> g_nearest;
+
  int nearestColor( int r, int g, int b, const QColor *palette, int size )
  {
      if (palette == 0)
        return 0;
+
+     QRgb rgb(qRgb(r, g, b ));
+     if ( g_nearest.find(rgb) != g_nearest.end()  )
+     {
+         return g_nearest[rgb];
+     }
 
      int dr = palette[0].red() - r;
      int dg = palette[0].green() - g;
@@ -42,7 +348,7 @@ std::map<QRgb,int> g_nearest;
          }
      }
  
-     //g_nearest[c.rgb()] = nearest;
+     //g_nearest[rgb] = nearest;
      return nearest;
  }
 
@@ -130,45 +436,17 @@ std::map<QRgb,int> g_nearest;
      delete [] berr1;
  
      img = dImage;
+     g_nearest.clear();
      return img;
  }
-*/
 
-void makeIndexedImage( const QuantizeMethod method, QImage& img )
+void makeIndexedImage( const QuantizeMethod method, QImage& img, const QVector<QRgb>& current_color_table = QVector<QRgb>() )
 {
     //img.save("/tmp/out_orig.png", "png", 50);
     switch (method)
     {
     case QuantizeMethod_DIFFUSE:
     {
-        /*
-        QImage ct = img.convertToFormat(QImage::Format_Indexed8);
-        QVector<QRgb> color_table = ct.colorTable();
-        qSort(color_table);
-        int rca, gca, bca, rcb, gcb, bcb;
-        const QColor ca = color_table.first();
-        const QColor cb = color_table.last();;
-        int rDiff, gDiff, bDiff;
-        rDiff = (rcb = cb.red())   - (rca = ca.red());
-        gDiff = (gcb = cb.green()) - (gca = ca.green());
-        bDiff = (bcb = cb.blue())  - (bca = ca.blue());
-        int ncols = 256;
-        QColor *dPal = new QColor[ncols];
-//         for (int i=0; i<ncols; i++) {
-//             dPal[i].setRgb ( rca + rDiff * i / ( ncols - 1 ),
-//                              gca + gDiff * i / ( ncols - 1 ),
-//                              bca + bDiff * i / ( ncols - 1 ) );
-//         }
-        for ( QVector<QRgb>::iterator it = color_table.begin();
-              it != color_table.end();
-              ++it )
-        {
-            dPal[(it-color_table.begin())] = QColor(*it);
-        }
-        dither(img, dPal, ncols);
-        delete [] dPal;
-        */
-        //img.setNumColors(256);
         img = img.convertToFormat(QImage::Format_Indexed8, Qt::DiffuseDither);
         break;
     }
@@ -179,12 +457,19 @@ void makeIndexedImage( const QuantizeMethod method, QImage& img )
         img = img.convertToFormat(QImage::Format_Indexed8, Qt::OrderedDither);
         break;        
     case QuantizeMethod_MEDIANCUT:
-        img = quantize_mediancut(img);
-        img = img.convertToFormat( QImage::Format_Indexed8 );
+    case QuantizeMethod_MEDIANCUT_FLOYD:
+    {
+        if ( current_color_table.size() )
+        {
+            img = img.convertToFormat( QImage::Format_Indexed8, current_color_table );
+        }
+        else
+        {
+            img = quantize_mediancut(img, (method == QuantizeMethod_MEDIANCUT_FLOYD));
+            img = img.convertToFormat( QImage::Format_Indexed8 );
+        }
         break;
-//     case QuantizeMethod_MAGICK:
-//         assert(false); // handled elsewhere, not here
-//         break;
+    }
     default:
         assert(false); // everything must be handled
         break;
@@ -227,7 +512,8 @@ ColorMapObject makeColorMapObject( const QImage& idx8 )
     return cmap;
 }
 
-bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, const QVector<int>& delays, const QString& filename, bool loop )
+bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, const QVector<int>& delays, 
+                const QVector<QRect>& crops, const QString& filename, bool loop )
 {
     if ( !images.size() )
     {
@@ -238,56 +524,21 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
         return false;
     }
 
-    /*
-    if ( method == QuantizeMethod_MAGICK )
-    {
-        char  arg0[] = "gifWrite";
-        char* argv[] = { &arg0[0], NULL };
-        int   argc   = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
-        Magick::InitializeMagick( *argv );
 
-        // shortcut everything below, use magick
-        std::vector<Magick::Image> frames;
-        for ( QVector<QImage>::const_iterator cit = images.begin(); cit != images.end() ; ++cit )
-        {
-            int f = cit-images.begin();
+    QImage initial = images.at(0);
+    QImage base_indexed = initial;
+    makeIndexedImage(method, base_indexed);
 
-            QImage qimg = cit->convertToFormat( QImage::Format_RGB888 );            
-            Magick::Image x( qimg.width(), qimg.height(), "RGB", Magick::CharPixel, qimg.constBits() );
-
-            int msec_delay = delays.at( f );
-            x.animationDelay(msec_delay);
-            x.quantizeColors( 256 ); 
-            x.quantizeDither( true );
-             if ( f < 3 ) 
-             {
-                 x.quantizeTreeDepth( 3 );
-             }
-             else
-             {
-                 x.quantizeTreeDepth( 2 );
-             }
-            x.quantize( );
-            frames.push_back( x );
-        }
-        
-        //std::vector<Magick::Image> optimized_frames;
-        //Magick::optimizeImageLayers( &optimized_frames, frames.begin(), frames.end() );
-        Magick::writeImages(frames.begin(), frames.end(), filename.toLocal8Bit().constData());      
-        return true;
-    }
-    */
-
-    QImage first = images.at(0);
-    makeIndexedImage(method, first);
-    ColorMapObject cmap = makeColorMapObject(first);
+    QVector<QRgb> first_color_table = base_indexed.colorTable();
 
     int error = 0;
     GifFileType *gif = EGifOpenFileName(filename.toLocal8Bit().constData(), false, &error);
     if (!gif) return false;
     EGifSetGifVersion(gif, true);
 
-    if (EGifPutScreenDesc(gif, first.width(), first.height(), 8, 0, &cmap) == GIF_ERROR)
+    // global color map
+    ColorMapObject cmap = makeColorMapObject(base_indexed);
+    if (EGifPutScreenDesc(gif, base_indexed.width(), base_indexed.height(), 8, 0, &cmap) == GIF_ERROR)
     {
         std::cerr << "EGifPutScreenDesc returned error" << std::endl;
         return false;
@@ -310,23 +561,25 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
             return false;
         }
     }
-    
+
     for ( QVector<QImage>::const_iterator it = images.begin(); it != images.end() ; ++it )
     {
-        QImage toWrite(*it);
+        QImage toWrite = base_indexed;
+        QImage sub;
 
-        makeIndexedImage(method, toWrite);
-        //toWrite.save( QString("/tmp/out_%1.png").arg(it-images.begin()), "PNG", 50 );
-        //int nc = 1 << GifBitSize(toWrite.colorCount());
-        //std::cout << "numColors:" << nc << std::endl;
-
-
-        // db more: transparent GIFs?
-
-        //qDebug("width:%d", toWrite.width() );
-        //qDebug("height:%d", toWrite.height() );
-        //qDebug("pixel count:%d", toWrite.width() * toWrite.height() );
-        //qDebug("line length:%d", toWrite.bytesPerLine() );
+        int idx = it-images.begin();
+        const QRect& crop = crops[idx];
+        if ( crop.isValid() )
+        { 
+            sub = it->copy( crop );
+            makeIndexedImage(method, sub, first_color_table);
+        }
+        else
+        {
+            sub = *it;
+            makeIndexedImage(method, sub, first_color_table);
+            toWrite = sub;
+        }
 
         // animation delay
         int msec_delay = delays.at( it-images.begin() );
@@ -336,6 +589,7 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
         ExtStr[2] = msec_delay / 256;
         EGifPutExtension(gif, GRAPHICS_EXT_FUNC_CODE, 4, ExtStr);
 
+        // local color map
         ColorMapObject lcmap = makeColorMapObject(toWrite);
         if (EGifPutImageDesc(gif, 0, 0, toWrite.width(), toWrite.height(), 0, &lcmap) == GIF_ERROR)
         {
@@ -344,18 +598,26 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
         free(lcmap.Colors);
 
         int lc = toWrite.height();
-        //int llen = toWrite.bytesPerLine();
-        //qDebug("will write %d lines, %d bytes each", lc, toWrite.width());
         for (int l = 0; l < lc; ++l)
         {
             uchar* line = toWrite.scanLine(l);
+            if ( crop.isValid() ) 
+            {
+                if ( l >= crop.y() && l < (crop.y() + crop.height()) )
+                {
+                    int crop_l = l - crop.y();
+                    uchar* crop_line = sub.scanLine(crop_l);
+                    std::copy ( crop_line, crop_line+crop.width(), line + crop.x() );
+                }
+            }
+            // update base image
+            std::copy( line, line+toWrite.width(), base_indexed.scanLine(l) );
             if (EGifPutLine(gif, (GifPixelType*)line, toWrite.width()) == GIF_ERROR)
             {
                 std::cerr << "EGifPutLine returned error: " <<  gif->Error << std::endl;
             }
         }
     }
-
     EGifCloseFile(gif);
     return true;
 }

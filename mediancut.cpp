@@ -273,10 +273,11 @@ colorhist_vector mediancut( colorhist_vector chv, int colors, int sum, pixval ma
     /*
     ** All done.
     */
+    free(bv);
     return colormap;
 }
 
-QImage quantize_mediancut( const QImage& src )
+QImage quantize_mediancut( const QImage& src, bool use_floyd )
 {
     //std::cout << "quantize_mediancut" << std::endl;
     QByteArray bar;
@@ -286,13 +287,7 @@ QImage quantize_mediancut( const QImage& src )
 
     FILE* ppmfile = fmemopen( bar.data(), bar.size(), "r" );
 
-    char  arg0[] = "makeIndexedImage";
-    char* argv[] = { &arg0[0], NULL };
-    int   argc   = (int)(sizeof(argv) / sizeof(argv[0])) - 1;
-    ppm_init( &argc, argv );
-
-
-    int floyd = 0;
+    int floyd = use_floyd;
     long* thisrerr=0;
     long* nextrerr=0;
     long* thisgerr=0;
@@ -302,6 +297,7 @@ QImage quantize_mediancut( const QImage& src )
     long* temperr=0;
     register long sr=0, sg=0, sb=0, err=0;
     register int col = 0, limitcol = 0;
+
 #define FS_SCALE 1024
     int fs_direction = 0;
     register pixel* pP = 0;
@@ -528,6 +524,10 @@ QImage quantize_mediancut( const QImage& src )
     }
 
     pm_close( ofd );
+    ppm_freearray( pixels, rows );
+    ppm_freecolorhash( cht );
+    free(colormap);
+    
 
     return QImage::fromData( bar, "ppm" );
 }

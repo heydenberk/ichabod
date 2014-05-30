@@ -76,10 +76,10 @@ void IchabodConverter::setQuantizeMethod( const QString& method )
     {
         m_settings.quantize_method = QuantizeMethod_MEDIANCUT;
     }
-//     if ( method == "MAGICK" )
-//     {
-//         m_settings.quantize_method = QuantizeMethod_MAGICK;
-//     }
+    if ( method == "MEDIANCUT_FLOYD" )
+    {
+        m_settings.quantize_method = QuantizeMethod_MEDIANCUT_FLOYD;
+    }
 }
 
 void IchabodConverter::slotJavascriptEnvironment(QWebPage* page)
@@ -99,12 +99,43 @@ void IchabodConverter::slotJavascriptWarning(QString s )
     m_warnings.push_back( s );
 }
 
+
+void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay )
+{
+    QWebFrame* frame = m_activePage->mainFrame();
+    // calculate largest rect encomapassing all elements
+    QRect crop_rect;
+    for( QStringList::const_iterator it = ids.begin();
+         it != ids.end();
+         ++it )
+    {
+        QMap<QString,QVariant> crop = frame->evaluateJavaScript( QString("document.getElementById('%1').getBoundingClientRect()").arg(*it) ).toMap();    
+        QRect r = QRect( crop["left"].toInt(), crop["top"].toInt(),
+                         crop["width"].toInt()+1, crop["height"].toInt() );
+        if ( r.isValid() )
+        {
+            if ( crop_rect.isValid() )
+            {
+                crop_rect = crop_rect.united( r );
+            }
+            else
+            {
+                crop_rect = r;
+            }
+        }
+    }
+    internalSnapshot( msec_delay, crop_rect );
+}
+
+
 void IchabodConverter::snapshotPage(int msec_delay)
 {
-    if ( m_settings.verbosity > 3 )
-    {
-        std::cout << "     snapshot"<< std::endl;
-    }
+    QRect invalid;
+    internalSnapshot( msec_delay, invalid );
+}
+
+void IchabodConverter::internalSnapshot( int msec_delay, const QRect& crop )
+{
     QWebFrame* frame = m_activePage->mainFrame();
     frame->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
 
@@ -185,6 +216,7 @@ void IchabodConverter::snapshotPage(int msec_delay)
     
     m_images.push_back(image);
     m_delays.push_back(msec_delay);
+    m_crops.push_back( crop );
 }
 
 void IchabodConverter::saveToOutput()
@@ -199,7 +231,7 @@ void IchabodConverter::saveToOutput()
     }
     if ( m_settings.fmt == "gif" )
     {
-        gifWrite( m_settings.quantize_method, m_images, m_delays, m_settings.out, m_settings.looping );
+        gifWrite( m_settings.quantize_method, m_images, m_delays, m_crops, m_settings.out, m_settings.looping );
     }
     else
     {
@@ -225,7 +257,8 @@ void IchabodConverter::debugSettings(bool success_status)
         {
             std::cout << "           in: " << m_settings.in << std::endl;
             std::cout << "          out: " << m_settings.out << std::endl;
-            std::cout << "      quality: " << m_settings.quality<< std::endl;
+            std::cout << "      quality: " << m_settings.quality << std::endl;
+            std::cout << "     quantize: " << m_settings.quantize_method << std::endl;
             std::cout << "          fmt: " << m_settings.fmt << std::endl;
             std::cout << "  transparent: " << m_settings.transparent << std::endl;
             std::cout << "       screen: " << m_settings.screenWidth << "x" << m_settings.screenHeight << std::endl;

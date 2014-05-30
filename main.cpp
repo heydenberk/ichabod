@@ -12,6 +12,7 @@
 #include <wkhtmltox/imageconverter.hh>
 
 #include "mongoose.h"
+#include "ppm.h"
 
 #include "version.h"
 #include "conv.h"
@@ -211,7 +212,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.screenHeight = height;
         settings.transparent = true;
         settings.looping = false;
-        settings.quantize_method = QuantizeMethod_DIFFUSE;
+        settings.quantize_method = QuantizeMethod_MEDIANCUT;
         settings.loadPage.debugJavascript = true;
         QList<QString> scripts;
         scripts.append(js);
@@ -260,11 +261,13 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
 
 int main(int argc, char *argv[])
 {
+    ppm_init( &argc, argv );
 
     bool gui = false;
     QApplication app(argc, argv, gui);
     MyLooksStyle * style = new MyLooksStyle();
     app.setStyle(style);
+
 
     int port = 9090;
     QStringList args = app.arguments();
