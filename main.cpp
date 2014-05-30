@@ -261,8 +261,6 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
 
 int main(int argc, char *argv[])
 {
-    ppm_init( &argc, argv );
-
     bool gui = false;
     QApplication app(argc, argv, gui);
     MyLooksStyle * style = new MyLooksStyle();
@@ -296,6 +294,8 @@ int main(int argc, char *argv[])
             std::cout << "** copyright notice and this permission notice appear in supporting" << std::endl;
             std::cout << "** documentation.  This software is provided \"as is\" without express or" << std::endl;
             std::cout << "** implied warranty." << std::endl;
+            std::cout << "**" << std::endl;
+            ppm_init( &argc, argv );
             return 0;
         }
         else 
@@ -304,6 +304,8 @@ int main(int argc, char *argv[])
             return -1;
         }
     }
+
+    ppm_init( &argc, argv );
 
     struct mg_server *server = mg_create_server(NULL, ev_handler);
 

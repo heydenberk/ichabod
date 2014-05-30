@@ -1,1 +1,1 @@
-#define ICHABOD_VERSION "0.0.5"
+#define ICHABOD_VERSION "0.0.6"
