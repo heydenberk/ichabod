@@ -125,6 +125,12 @@ void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay 
             }
         }
     }
+    // make sure to cover prior frame (which may be larger)
+    if ( m_crops.size() )
+    {
+        QRect prior = m_crops.back();
+        crop_rect = crop_rect.united( prior );
+    }    
     internalSnapshot( msec_delay, crop_rect );
 }
 
