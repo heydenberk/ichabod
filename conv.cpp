@@ -102,6 +102,11 @@ void IchabodConverter::slotJavascriptWarning(QString s )
 
 void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay )
 {
+    if ( !m_crops.size() )
+    {
+        snapshotPage( msec_delay );
+        return;
+    }
     QWebFrame* frame = m_activePage->mainFrame();
     // calculate largest rect encomapassing all elements
     QRect crop_rect;
@@ -126,11 +131,8 @@ void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay 
         }
     }
     // make sure to cover prior frame (which may be larger)
-    if ( m_crops.size() )
-    {
-        QRect prior = m_crops.back();
-        crop_rect = crop_rect.united( prior );
-    }    
+    QRect prior = m_crops.back();
+    crop_rect = crop_rect.united( prior );
     internalSnapshot( msec_delay, crop_rect );
 }
 
