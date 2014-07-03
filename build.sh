@@ -22,6 +22,15 @@ pushd wkhtmltopdf/static-build/centos
 ./build.sh
 popd
 
+pushd jsoncpp
+rm -rf build
+mkdir build
+pushd build
+cmake -DJSONCPP_LIB_BUILD_SHARED=OFF -G "Unix Makefiles" ../
+make
+popd
+popd
+
 wkhtmltopdf/static-build/centos/qt/bin/qmake ichabod.pro
 make
 
