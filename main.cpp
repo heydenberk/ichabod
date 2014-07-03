@@ -14,6 +14,8 @@
 #include "mongoose.h"
 #include "ppm.h"
 
+#include "json/json.h"
+
 #include "version.h"
 #include "conv.h"
 #include "quant.h"
@@ -95,19 +97,20 @@ static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
     }
     IchabodConverter converter(settings);
     std::pair<QString,QVector<QString> > result = converter.convert();
-    QString warn;
+    Json::Value root;
+    root["path"] = settings.out.toLocal8Bit().constData();
+    root["result"] = result.first.toLocal8Bit().constData();
+    Json::Value warnings;
     for( QVector<QString>::iterator it = result.second.begin();
          it != result.second.end();
          ++it )
     {
-        warn += QString("\"%1\"").arg(*it);
-        if ( it != result.second.begin() )
-        {
-            warn += ",";
-        }
+        warnings.append( it->toLocal8Bit().constData() );
     }
-    QString json = QString("{\"path\": \"%1\", \"result\": %2, \"warnings\": [%3]}").arg(settings.out, result.first, warn);
-    mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
+    root["warnings"] = warnings;
+    Json::StyledWriter writer;
+    std::string json = writer.write(root);
+    mg_send_data(conn, json.c_str(), json.length());
     return MG_TRUE;
 }
 
