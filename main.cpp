@@ -21,14 +21,20 @@
 #include "quant.h"
 
 #define ICHABOD_NAME "ichabod"
+#define LOG_STRING "%1 %2x%3 %4 %5" // input wxh format output
 
 int g_verbosity = 0;
 QString g_quantize = "MEDIANCUT";
 
+void log( struct mg_connection* conn, const char* extra )
+{
+    std::cerr << conn->uri << " - " << extra << std::endl;
+}
+
 // output error and send error back to client
 static int send_error(struct mg_connection* conn, const char* err)
 {
-    std::cerr << "ERROR:" << err << std::endl;
+    log(conn, err);
     mg_send_status(conn, 500);
     mg_send_header(conn, "X-Error-Message", err);
     mg_printf_data(conn, err);
@@ -237,6 +243,9 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             format = "png";
         }
 
+        QString xtra = QString(LOG_STRING).arg(input).arg(width).arg(height).arg(output).arg(format);
+        log( conn, xtra.toLocal8Bit().constData() );
+
         IchabodSettings settings;
         settings.verbosity = g_verbosity;
         settings.rasterizer = rasterizer;
@@ -360,10 +369,7 @@ int main(int argc, char *argv[])
         std::cerr << "Cannot bind to port:" << port << " [" << err << "], exiting." << std::endl;
         return -1;
     }
-    if ( g_verbosity )
-    {
-        std::cout << "Starting on port " << mg_get_option(server, "listening_port") << std::endl;
-    }
+    std::cout << "Starting on port " << mg_get_option(server, "listening_port") << std::endl;
     for (;;) 
     {
         mg_poll_server(server, 1000);

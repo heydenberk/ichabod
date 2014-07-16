@@ -9,6 +9,9 @@
 #include <QRect>
 #include <utility>
 #include "quant.h"
+#include <iostream>
+
+std::ostream& operator<<(std::ostream& str, const QString& string); // convenience
 
 struct IchabodSettings : public wkhtmltopdf::settings::ImageGlobal 
 {
