@@ -287,7 +287,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
                 return send_error(conn, "Nothing to evaluate");                
             }
             QList<QString> scripts;
-            scripts.append("(function(){ichabod.saveToOutput();})()");
+            scripts.append("(function(){ichabod.snapshotPage();ichabod.saveToOutput();})()");
             scripts.append(js);
             settings.loadPage.runScript = scripts;
             return handle_001(conn, settings);
@@ -295,7 +295,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         if ( canonical_path == "rasterize" || canonical_path == "001" )
         {
             QList<QString> scripts;
-            scripts.append("(function(){ichabod.saveToOutput();})()");
+            scripts.append("(function(){ichabod.snapshotPage();ichabod.saveToOutput();})()");
             settings.loadPage.runScript = scripts;
             return handle_001(conn, settings);            
         }

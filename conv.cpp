@@ -251,6 +251,19 @@ void IchabodConverter::saveToOutput()
     else
     {
         QImage img = m_images.last();
+        // selector, optionally creates initial crop
+        if ( m_settings.selector.length() )
+        {
+            //std::cout << "selector:" << m_settings.selector << std::endl;
+            QWebFrame* frame = m_activePage->mainFrame();
+            QWebElement el = frame->findFirstElement( m_settings.selector );
+            QMap<QString,QVariant> crop = el.evaluateJavaScript( QString("this.getBoundingClientRect()") ).toMap();
+            QRect r = QRect( crop["left"].toInt(), crop["top"].toInt(),
+                             crop["width"].toInt(), crop["height"].toInt() );            
+            //std::cout << "client rect:" << crop["left"].toInt() << "," << crop["top"].toInt() << "," <<crop["width"].toInt() << "," <<crop["height"].toInt() << "," << std::endl;
+            img = img.copy(r);            
+        }
+        // actual cropping, relative to whatever img is now
         if ( m_settings.crop_rect.isValid() )
         {
             img = img.copy(m_settings.crop_rect);
