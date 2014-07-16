@@ -21,6 +21,7 @@ IchabodConverter::IchabodConverter(IchabodSettings & s, const QString * data)
 {
     connect(this, SIGNAL(javascriptEnvironment(QWebPage*)), this, SLOT(slotJavascriptEnvironment(QWebPage*)));
     connect(this, SIGNAL(warning(QString)), this, SLOT(slotJavascriptWarning(QString)));
+    connect(this, SIGNAL(error(QString)), this, SLOT(slotJavascriptError(QString)));
 
     QObject::connect(this, SIGNAL(checkboxSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxSvg(const QString &)));
     QObject::connect(this, SIGNAL(checkboxCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxCheckedSvg(const QString &)));
@@ -87,7 +88,7 @@ void IchabodConverter::slotJavascriptEnvironment(QWebPage* page)
     // register the current environment
     if ( m_settings.verbosity > 2 )
     {
-        std::cout << " js rasterizer:" << m_settings.rasterizer << std::endl;
+        std::cout << "js rasterizer: " << m_settings.rasterizer << std::endl;
     }
     m_activePage = page;
     m_activePage->mainFrame()->addToJavaScriptWindowObject(m_settings.rasterizer, 
@@ -99,6 +100,11 @@ void IchabodConverter::slotJavascriptWarning(QString s )
     m_warnings.push_back( s );
 }
 
+
+void IchabodConverter::slotJavascriptError(QString s )
+{
+    m_errors.push_back( s );
+}
 
 void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay )
 {
@@ -244,13 +250,18 @@ void IchabodConverter::saveToOutput()
     }
     else
     {
+        QImage img = m_images.last();
+        if ( m_settings.crop_rect.isValid() )
+        {
+            img = img.copy(m_settings.crop_rect);
+        }
         QFile file;
         file.setFileName(m_settings.out);
         bool openOk = file.open(QIODevice::WriteOnly);
         if (!openOk) {
             std::cerr << "failure to open output file: " << m_settings.out << std::endl;            
         }
-        if ( !m_images.last().save(&file,m_settings.fmt.toLocal8Bit().constData(), m_settings.quality) )
+        if ( !img.save(&file,m_settings.fmt.toLocal8Bit().constData(), m_settings.quality) )
         {
             std::cerr << "failure to save output file: " << m_settings.out << " as " << m_settings.fmt << std::endl;            
         }
@@ -270,7 +281,13 @@ void IchabodConverter::debugSettings(bool success_status)
             std::cout << "     quantize: " << m_settings.quantize_method << std::endl;
             std::cout << "          fmt: " << m_settings.fmt << std::endl;
             std::cout << "  transparent: " << m_settings.transparent << std::endl;
+            std::cout << "  smart width: " << m_settings.smartWidth << std::endl;
             std::cout << "       screen: " << m_settings.screenWidth << "x" << m_settings.screenHeight << std::endl;
+            if ( m_settings.crop_rect.isValid() )
+            {
+                std::cout << "         crop: " << m_settings.crop_rect.x() << "," << m_settings.crop_rect.y()
+                          << " " << m_settings.crop_rect.width() << "x" << m_settings.crop_rect.height() << std::endl;
+            }
         }
         if ( m_settings.verbosity > 2 )
         {
@@ -278,12 +295,18 @@ void IchabodConverter::debugSettings(bool success_status)
             std::cout << "        bytes: " << fi.size() << std::endl;
             QImage img(m_settings.out, m_settings.fmt.toLocal8Bit().constData());
             std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
-            std::cout << " script result: " << scriptResult() << std::endl;
+            std::cout << "script result: " << scriptResult() << std::endl;
             for( QVector<QString>::iterator it = m_warnings.begin();
                  it != m_warnings.end();
                  ++it )
             {
                 std::cout << "       warning: " << *it << std::endl;
+            }
+            for( QVector<QString>::iterator it = m_errors.begin();
+                 it != m_errors.end();
+                 ++it )
+            {
+                std::cout << "         error: " << *it << std::endl;
             }
         }
         if ( m_settings.verbosity > 3 )
@@ -291,25 +314,50 @@ void IchabodConverter::debugSettings(bool success_status)
             QFile fil_read(m_settings.in);
             fil_read.open(QIODevice::ReadOnly);
             QByteArray arr = fil_read.readAll();
-            std::cout << "      html: " << QString(arr) << std::endl;
+            std::cout << "         html: " << QString(arr) << std::endl;
             for( QList<QString>::const_iterator it = m_settings.loadPage.runScript.begin();
                  it != m_settings.loadPage.runScript.end();
                  ++it )
             {
-                std::cout << "        js: " << *it << std::endl;
+                std::cout << "           js: " << *it << std::endl;
             }
+            std::cout << "     selector: " << m_settings.selector << std::endl;
+            std::cout << "          css: " << m_settings.css << std::endl;
         }
     }
 }
 
-std::pair<QString,QVector<QString> > IchabodConverter::convert()
+bool IchabodConverter::convert(QString& result, QVector<QString>& warnings, QVector<QString>& errors)
 {
     m_images.clear();
     m_delays.clear();
     m_warnings.clear();
+    m_errors.clear();
     wkhtmltopdf::ProgressFeedback feedback(true, *this);
     bool success = wkhtmltopdf::ImageConverter::convert();  
     debugSettings(success);
-    QString res = scriptResult();
-    return std::make_pair(res,m_warnings);
+    result = scriptResult();
+    warnings = m_warnings;
+    errors = m_errors;
+    return !m_errors.size();
+}
+
+void IchabodConverter::setSelector( const QString& sel )
+{
+    m_settings.selector = sel;
+}
+
+void IchabodConverter::setCss( const QString& css )
+{
+    m_settings.css = css;
+}
+
+void IchabodConverter::setCropRect( int x, int y, int w, int h )
+{
+    m_settings.crop_rect = QRect(x,y,w,h);
+}
+
+void IchabodConverter::setSmartWidth( bool sw )
+{
+    m_settings.smartWidth = sw;
 }
