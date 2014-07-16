@@ -16,6 +16,9 @@ struct IchabodSettings : public wkhtmltopdf::settings::ImageGlobal
     QString rasterizer;
     bool looping;
     QuantizeMethod quantize_method;
+    QRect crop_rect;
+    QString css;
+    QString selector;
 };
 
 class IchabodConverter: public wkhtmltopdf::ImageConverter 
@@ -25,7 +28,7 @@ public:
     IchabodConverter(IchabodSettings & settings, const QString * data=0);
     ~IchabodConverter();
 
-    std::pair<QString,QVector<QString> > convert();
+    bool convert(QString& result, QVector<QString>& warnings, QVector<QString>& errors);
 public slots:
     void setTransparent( bool t );
     void setQuality( int q );
@@ -36,18 +39,24 @@ public slots:
     void snapshotElements( const QStringList& ids, int msec_delay = 100 );
     void saveToOutput();
     void setQuantizeMethod( const QString& method ); // see quant.h
+    void setSelector( const QString& sel );
+    void setCss( const QString& css );
+    void setCropRect( int x, int y, int w, int h );
+    void setSmartWidth( bool sw );
 
 private slots:
     void slotJavascriptEnvironment(QWebPage* page);
     void slotJavascriptWarning(QString s);
+    void slotJavascriptError(QString s);
 private:
     void debugSettings(bool success_status);
     IchabodSettings m_settings;
     QWebPage* m_activePage;
     QVector<QImage> m_images;
     QVector<int> m_delays;
-    QVector< QRect > m_crops;
+    QVector<QRect> m_crops;
     QVector<QString> m_warnings;
+    QVector<QString> m_errors;
     void internalSnapshot( int msec_delay, const QRect& crop );
 };
 

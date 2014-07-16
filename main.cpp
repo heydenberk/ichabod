@@ -37,16 +37,16 @@ static int send_error(struct mg_connection* conn, const char* err)
 
 // either get the POST variable, or returning empty string
 // WARNING: this function is not re-entrant
-static QString get_var( struct mg_connection *conn, const char* var_name )
+static QString get_var( struct mg_connection *conn, const char* var_name, const QString default_string = QString() )
 {
     static char data[20971520];
     int r = mg_get_var(conn, var_name, data, sizeof(data));
     switch( r )
     {
     case -1: // not found
-        return QString();
+        return default_string;
     case -2: // too big
-        return QString();
+        return default_string;
     }
     return QString(data);
 }
@@ -59,8 +59,11 @@ static int handle_001(struct mg_connection *conn, IchabodSettings& settings)
         return send_error(conn, "Internal error: no scripts");
     }
     IchabodConverter converter(settings);
-    std::pair<QString,QVector<QString> > result = converter.convert();
-    QString json = QString("{\"path\": \"%1\", \"result\": \"%2\"}").arg(settings.out, result.first);
+    QString result;
+    QVector<QString> warnings;
+    QVector<QString> errors;
+    converter.convert(result, warnings, errors);
+    QString json = QString("{\"path\": \"%1\", \"result\": \"%2\"}").arg(settings.out, result);
     mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
     return MG_TRUE;
 }
@@ -82,8 +85,11 @@ static int handle_002(struct mg_connection *conn, IchabodSettings& settings)
         return send_error(conn, "Internal error: no scripts");
     }
     IchabodConverter converter(settings);
-    std::pair<QString,QVector<QString> > result = converter.convert();
-    QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, result.first);
+    QString result;
+    QVector<QString> warnings;
+    QVector<QString> errors;
+    converter.convert(result, warnings, errors);
+    QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, result);
     mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
     return MG_TRUE;
 }
@@ -96,18 +102,30 @@ static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
         return send_error(conn, "Internal error: no scripts");
     }
     IchabodConverter converter(settings);
-    std::pair<QString,QVector<QString> > result = converter.convert();
+    QString result;
+    QVector<QString> warnings;
+    QVector<QString> errors;
+    bool conversion_success = converter.convert(result, warnings, errors);
     Json::Value root;
     root["path"] = settings.out.toLocal8Bit().constData();
-    root["result"] = result.first.toLocal8Bit().constData();
-    Json::Value warnings;
-    for( QVector<QString>::iterator it = result.second.begin();
-         it != result.second.end();
+    root["result"] = result.toLocal8Bit().constData();
+    root["conversion"] = conversion_success;
+    Json::Value js_warnings;
+    for( QVector<QString>::iterator it = warnings.begin();
+         it != warnings.end();
          ++it )
     {
-        warnings.append( it->toLocal8Bit().constData() );
+        js_warnings.append( it->toLocal8Bit().constData() );
     }
-    root["warnings"] = warnings;
+    root["warnings"] = js_warnings;
+    Json::Value js_errors;
+    for( QVector<QString>::iterator it = errors.begin();
+         it != errors.end();
+         ++it )
+    {
+        js_errors.append( it->toLocal8Bit().constData() );
+    }
+    root["errors"] = js_errors;
     Json::StyledWriter writer;
     std::string json = writer.write(root);
     mg_send_data(conn, json.c_str(), json.length());
@@ -161,9 +179,21 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QString rasterizer = get_var(conn, "rasterizer");
         QString output = get_var(conn, "output");
         QString url = get_var(conn, "url");
+        bool transparent = get_var(conn, "transparent", "1").toInt();
         int width = get_var(conn, "width").toInt();
         int height = get_var(conn, "height").toInt();
-
+        int crop_x = get_var(conn, "crop_x", "0").toInt();
+        int crop_y = get_var(conn, "crop_y", "0").toInt();
+        int crop_w = get_var(conn, "crop_w", "0").toInt();
+        int crop_h = get_var(conn, "crop_h", "0").toInt();
+        int smart_width = get_var(conn, "smart_width", "1").toInt();
+        QString css = get_var(conn, "css");
+        QString selector = get_var(conn, "selector");
+        QRect crop_rect;
+        if ( crop_x || crop_y || crop_w || crop_h )
+        {
+            crop_rect = QRect(crop_x, crop_y, crop_w, crop_h);
+        }
         if ( !rasterizer.length() )
         {
             rasterizer = ICHABOD_NAME;
@@ -186,7 +216,8 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         if ( html.length() ) {
             if ( !file.open() )
             {
-                return send_error(conn, (QString("Unable to open:") + output + QString("_XXXXXX.html")).toLocal8Bit().constData() );
+                return send_error(conn, (QString("Unable to open:") + output 
+                                         + QString("_XXXXXX.html")).toLocal8Bit().constData() );
             }
             QTextStream out(&file);
             out << html;
@@ -215,10 +246,14 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.out = output;
         settings.screenWidth = width;
         settings.screenHeight = height;
-        settings.transparent = true;
+        settings.transparent = transparent;
         settings.looping = false;
         settings.quantize_method = toQuantizeMethod( g_quantize );
         settings.loadPage.debugJavascript = true;
+        settings.smartWidth = smart_width;
+        settings.crop_rect = crop_rect;
+        settings.css = css;
+        settings.selector = selector;
         QList<QString> scripts;
         scripts.append(js);
         settings.loadPage.runScript = scripts;
