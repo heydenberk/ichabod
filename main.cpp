@@ -196,7 +196,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QString url = get_var(conn, "url");
         bool transparent = get_var(conn, "transparent", "1").toInt();
         int width = get_var(conn, "width").toInt();
-        int height = get_var(conn, "height").toInt();
+        int height = get_var(conn, "height", "-1").toInt();
         int crop_x = get_var(conn, "crop_x", "0").toInt();
         int crop_y = get_var(conn, "crop_y", "0").toInt();
         int crop_w = get_var(conn, "crop_w", "0").toInt();
@@ -218,7 +218,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         {
             return send_error(conn, "No output specified");
         }
-        if ( width < 1 || height < 1 )
+        if ( width < 1 )
         {
             return send_error(conn, "Bad dimensions");
         }
