@@ -1,6 +1,7 @@
 2014-08-05 version 0.0.8
 	* report errors to client
 	* added crop feature
+	* added load_timeout_msec option
 
 2014-06-19 version 0.0.7
 	* fix corruption of animated gifs containing oddly shaped fonts

@@ -114,7 +114,16 @@ static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
     bool conversion_success = converter.convert(result, warnings, errors);
     Json::Value root;
     root["path"] = settings.out.toLocal8Bit().constData();
-    root["result"] = result.toLocal8Bit().constData();
+
+    Json::Reader reader;
+    Json::Value result_root;
+    bool parsingSuccessful = false;
+    parsingSuccessful = reader.parse( result.toLocal8Bit().constData(), result_root );
+    if ( !parsingSuccessful )
+    {
+        result_root = Json::Value("No json value can be parsed from result");
+    }
+    root["result"] = result_root;
     root["conversion"] = conversion_success;
     Json::Value js_warnings;
     for( QVector<QString>::iterator it = warnings.begin();
