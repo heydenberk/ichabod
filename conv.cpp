@@ -85,12 +85,20 @@ void IchabodConverter::setQuantizeMethod( const QString& method )
 
 void IchabodConverter::slotJavascriptEnvironment(QWebPage* page)
 {
+    m_activePage = page;
+    // install custom css, if present
+    if ( m_settings.css.length() )
+    {
+        QByteArray ba = m_settings.css.toUtf8().toBase64();
+        QString data("data:text/css;charset=utf-8;base64,");
+        QUrl css_data_url(data + QString(ba.data()));
+        m_activePage->settings()->setUserStyleSheetUrl(css_data_url);
+    }
     // register the current environment
     if ( m_settings.verbosity > 2 )
     {
         std::cout << "js rasterizer: " << m_settings.rasterizer << std::endl;
     }
-    m_activePage = page;
     m_activePage->mainFrame()->addToJavaScriptWindowObject(m_settings.rasterizer, 
                                                            this);
 }
