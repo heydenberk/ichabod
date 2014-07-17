@@ -195,6 +195,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         int smart_width = get_var(conn, "smart_width", "1").toInt();
         QString css = get_var(conn, "css");
         QString selector = get_var(conn, "selector");
+        int load_timeout_msec = get_var(conn, "load_timeout", "0").toInt();
         QRect crop_rect;
         if ( crop_x || crop_y || crop_w || crop_h )
         {
@@ -263,6 +264,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.crop_rect = crop_rect;
         settings.css = css;
         settings.selector = selector;
+        settings.loadPage.load_timeout_msec = load_timeout_msec;
         QList<QString> scripts;
         scripts.append(js);
         settings.loadPage.runScript = scripts;
