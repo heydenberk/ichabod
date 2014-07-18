@@ -9,4 +9,4 @@
 	url = http://git.code.sf.net/p/giflib/code
 [submodule "jsoncpp"]
 	path = jsoncpp
-	url = https://github.com/jacobsa/jsoncpp.git
+        url = https://github.com/open-source-parsers/jsoncpp.git
