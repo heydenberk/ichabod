@@ -37,7 +37,20 @@ static int send_error(struct mg_connection* conn, const char* err)
     log(conn, err);
     mg_send_status(conn, 500);
     mg_send_header(conn, "X-Error-Message", err);
-    mg_printf_data(conn, err);
+
+    Json::Value root;
+    root["path"] = Json::Value();
+    root["conversion"] = false;
+    root["output"] = Json::Value();
+    root["result"] = Json::Value();
+    root["warnings"] = Json::Value();
+    Json::Value js_errors;
+    js_errors.append( err );
+    root["errors"] = js_errors;
+
+    Json::StyledWriter writer;
+    std::string json = writer.write(root);
+    mg_send_data(conn, json.c_str(), json.length());
     return MG_TRUE;
 }
 
@@ -121,7 +134,7 @@ static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
     parsingSuccessful = reader.parse( result.toLocal8Bit().constData(), result_root );
     if ( !parsingSuccessful )
     {
-        result_root = Json::Value("No json value can be parsed from result");
+        result_root = Json::Value();
     }
     root["result"] = result_root;
     root["conversion"] = conversion_success;
