@@ -474,6 +474,10 @@ void makeIndexedImage( const QuantizeMethod method, QImage& img, const QVector<Q
         assert(false); // everything must be handled
         break;
     }
+    if ( img.colorCount() != 256 )
+    {
+        img.setColorCount( 256 );
+    }
 }
 
 ColorMapObject makeColorMapObject( const QImage& idx8 )
