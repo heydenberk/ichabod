@@ -525,6 +525,12 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
     }
     if ( images.size() != delays.size() )
     {
+        std::cerr << "Internal error: images:delays mismatch" << std::endl;
+        return false;
+    }
+    if ( images.size() != crops.size() )
+    {
+        std::cerr << "Internal error: images:crops mismatch" << std::endl;
         return false;
     }
 
@@ -568,7 +574,6 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
 
     for ( QVector<QImage>::const_iterator it = images.begin(); it != images.end() ; ++it )
     {
-        QImage toWrite = base_indexed;
         QImage sub;
 
         int idx = it-images.begin();
@@ -576,17 +581,15 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
         if ( crop.isValid() )
         { 
             sub = it->copy( crop );
-            makeIndexedImage(method, sub, first_color_table);
         }
         else
         {
             sub = *it;
-            makeIndexedImage(method, sub, first_color_table);
-            toWrite = sub;
         }
+        makeIndexedImage(method, sub, first_color_table);
 
         // animation delay
-        int msec_delay = delays.at( it-images.begin() );
+        int msec_delay = delays.at( idx );
         static unsigned char ExtStr[4] = { 0x04, 0x00, 0x00, 0xff };
         ExtStr[0] = (false) ? 0x06 : 0x04;
         ExtStr[1] = msec_delay % 256;
@@ -594,29 +597,29 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
         EGifPutExtension(gif, GRAPHICS_EXT_FUNC_CODE, 4, ExtStr);
 
         // local color map
-        ColorMapObject lcmap = makeColorMapObject(toWrite);
-        if (EGifPutImageDesc(gif, 0, 0, toWrite.width(), toWrite.height(), 0, &lcmap) == GIF_ERROR)
+        ColorMapObject lcmap = makeColorMapObject(sub);
+
+        // local image description
+        int local_x = 0;
+        int local_y = 0;
+        int local_w = sub.width();
+        int local_h = sub.height();
+        if ( crop.isValid() )
+        {
+            local_x = crop.x();
+            local_y = crop.y();
+        }
+        if (EGifPutImageDesc(gif, local_x, local_y, local_w, local_h, 0, &lcmap) == GIF_ERROR)
         {
             std::cerr << "EGifPutImageDesc returned error" << std::endl;
         }
         free(lcmap.Colors);
 
-        int lc = toWrite.height();
+        int lc = sub.height();
         for (int l = 0; l < lc; ++l)
         {
-            uchar* line = toWrite.scanLine(l);
-            if ( crop.isValid() ) 
-            {
-                if ( l >= crop.y() && l < (crop.y() + crop.height()) )
-                {
-                    int crop_l = l - crop.y();
-                    uchar* crop_line = sub.scanLine(crop_l);
-                    std::copy ( crop_line, crop_line+crop.width(), line + crop.x() );
-                }
-            }
-            // update base image
-            std::copy( line, line+toWrite.width(), base_indexed.scanLine(l) );
-            if (EGifPutLine(gif, (GifPixelType*)line, toWrite.width()) == GIF_ERROR)
+            uchar* line = sub.scanLine(l);
+            if (EGifPutLine(gif, (GifPixelType*)line, local_w) == GIF_ERROR)
             {
                 std::cerr << "EGifPutLine returned error: " <<  gif->Error << std::endl;
             }
