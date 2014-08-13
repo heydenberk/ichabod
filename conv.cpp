@@ -4,8 +4,9 @@
 #include <QWebPage>
 #include <QWebFrame>
 #include <QWebElement>
-#include <iostream>
 #include <QDateTime>
+#include <iostream>
+#include <algorithm> 
 
 // overload to allow QString output
 std::ostream& operator<<(std::ostream& str, const QString& string) 
@@ -122,7 +123,7 @@ void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay 
         return;
     }
     QWebFrame* frame = m_activePage->mainFrame();
-    // calculate largest rect encomapassing all elements
+    // calculate largest rect encompassing all elements
     QRect crop_rect;
     for( QStringList::const_iterator it = ids.begin();
          it != ids.end();
@@ -133,7 +134,7 @@ void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay 
                          crop["width"].toInt()+1, crop["height"].toInt() );
         if ( r.isValid() )
         {
-            r.adjust( -3, -3, 3, 3 ); // just a bit of padding
+            r.adjust( -1 * (std::min(15,r.x())), -1 * (std::min(15,r.y())), 15, 15 ); // padding to account for possible font overflow
             if ( crop_rect.isValid() )
             {
                 crop_rect = crop_rect.united( r );
@@ -144,9 +145,6 @@ void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay 
             }
         }
     }
-    // make sure to cover prior frame (which may be larger)
-    QRect prior = m_crops.back();
-    crop_rect = crop_rect.united( prior );
     internalSnapshot( msec_delay, crop_rect );
 }
 
