@@ -1,4 +1,7 @@
-2014-08-06 version 0.0.10
+2014-08-14 version 0.0.10
+	* handle animated high-color frames better
+
+2014-08-13 version 0.0.10
 	* reduce size of animated gifs
 
 2014-08-06 version 0.0.9

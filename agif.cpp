@@ -609,12 +609,13 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
             //std::cout << c.red() << ":" << c.blue() << ":" << c.green() << std::endl;
         }
         std::cout << "sub_color_table size:" << sub_color_table.size() << std::endl;
-        */
 
         if ( sub_color_table != first_color_table )
         {
             std::cerr << "WARNING: sub_color_table table does NOT match first_color_table!" << std::endl;
         }
+        */
+
 
         // animation delay
         int msec_delay = delays.at( idx );
