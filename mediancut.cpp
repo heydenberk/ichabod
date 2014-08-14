@@ -2,12 +2,14 @@
 #include <QColor>
 #include <QByteArray>
 #include <QBuffer>
+#include <QFile>
 #include "ppm.h"
 #include <iostream>
 
 //#include "ppmcmap.h"
-#define MAXCOLORS 32767
-
+//#define MAXCOLORS 32767
+#define MAXCOLORS 65536
+//#define MAXCOLORS 262144
 
 QuantizeMethod toQuantizeMethod( const QString& s )
 {
@@ -339,6 +341,7 @@ QImage quantize_mediancut( const QImage& src, bool use_floyd )
     pixel** pixels = ppm_readppm( ppmfile, &cols, &rows, &maxval );
     pm_close( ppmfile );
 
+    //std::cout << "ppm_readppm cols:" << cols << " rows:" << rows << " maxval:" << maxval << std::endl;
     newcolors = 256;
 
     /*
@@ -353,8 +356,8 @@ QImage quantize_mediancut( const QImage& src, bool use_floyd )
             pixels, cols, rows, MAXCOLORS, &colors );
         if ( chv != (colorhist_vector) 0 )
             break;
-        newmaxval = maxval / 2;
-        //std::cout << "scaling colors from maxval=%d to maxval=%d to improve clustering..." <<  maxval << newmaxval  << std::endl;
+        newmaxval = maxval - 1;
+        //std::cout << "scaling colors (computed " << colors << ") from maxval=" << maxval << " to maxval=" << newmaxval << " to improve clustering" << std::endl;
         for ( row = 0; row < rows; ++row ) {
             pixel* pP = pixels[row];
             for ( col = 0 ; col < cols; ++col, ++pP )
@@ -365,7 +368,8 @@ QImage quantize_mediancut( const QImage& src, bool use_floyd )
     /*
     ** Step 3: apply median-cut to histogram, making the new colormap.
     */
-    //std::cout <<  "choosing %d colors..." << newcolors << " maxval:" << maxval << std::endl;    
+    //std::cout <<  "choosing " << newcolors << " colors..." << " maxval:" << maxval << " computed colors:" << colors << std::endl;    
+    maxval = 255;
     colormap = mediancut( chv, colors, rows * cols, maxval, newcolors );
     ppm_freecolorhist( chv );
 
