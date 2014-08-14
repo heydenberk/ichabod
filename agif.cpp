@@ -476,6 +476,7 @@ void makeIndexedImage( const QuantizeMethod method, QImage& img, const QVector<Q
     }
     if ( img.colorCount() != 256 )
     {
+        std::cerr << "WARNING: forcing color count (" << img.colorCount() << ") to 256" << std::endl;
         img.setColorCount( 256 );
     }
 }
@@ -540,6 +541,16 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
     makeIndexedImage(method, base_indexed);
 
     QVector<QRgb> first_color_table = base_indexed.colorTable();
+    /*
+    for( QVector<QRgb>::iterator it = first_color_table.begin();
+         it != first_color_table.end();
+         ++it )
+    {
+        QColor c(*it);
+        //std::cout << c.red() << ":" << c.blue() << ":" << c.green() << std::endl;
+    }
+    std::cout << "first_color_table size:" << first_color_table.size() << std::endl;
+    */
 
     int error = 0;
     GifFileType *gif = EGifOpenFileName(filename.toLocal8Bit().constData(), false, &error);
@@ -587,6 +598,24 @@ bool gifWrite ( const QuantizeMethod method, const QVector<QImage> & images, con
             sub = *it;
         }
         makeIndexedImage(method, sub, first_color_table);
+
+        /*
+        QVector<QRgb> sub_color_table = sub.colorTable();
+        for( QVector<QRgb>::iterator it = sub_color_table.begin();
+             it != sub_color_table.end();
+             ++it )
+        {
+            QColor c(*it);
+            //std::cout << c.red() << ":" << c.blue() << ":" << c.green() << std::endl;
+        }
+        std::cout << "sub_color_table size:" << sub_color_table.size() << std::endl;
+
+        if ( sub_color_table != first_color_table )
+        {
+            std::cerr << "WARNING: sub_color_table table does NOT match first_color_table!" << std::endl;
+        }
+        */
+
 
         // animation delay
         int msec_delay = delays.at( idx );
