@@ -244,6 +244,7 @@ void IchabodConverter::saveToOutput()
 {
     if ( !m_images.size() )
     {
+        //std::cerr << "WARNING: saveToOutput forcing snapshotPage" << std::endl;
         snapshotPage();
     }
     if ( m_settings.verbosity > 1 )
@@ -260,14 +261,13 @@ void IchabodConverter::saveToOutput()
         // selector, optionally creates initial crop
         if ( m_settings.selector.length() )
         {
-            //std::cout << "selector:" << m_settings.selector << std::endl;
             QWebFrame* frame = m_activePage->mainFrame();
             QWebElement el = frame->findFirstElement( m_settings.selector );
             QMap<QString,QVariant> crop = el.evaluateJavaScript( QString("this.getBoundingClientRect()") ).toMap();
             QRect r = QRect( crop["left"].toInt(), crop["top"].toInt(),
                              crop["width"].toInt(), crop["height"].toInt() );            
-            //std::cout << "client rect:" << crop["left"].toInt() << "," << crop["top"].toInt() << "," <<crop["width"].toInt() << "," <<crop["height"].toInt() << "," << std::endl;
-            img = img.copy(r);            
+            //std::cout << "saveToOutput: isNull:" << el.isNull() << " selector:" << m_settings.selector << " rect:" << crop["left"].toInt() << "," << crop["top"].toInt() << "," <<crop["width"].toInt() << "," <<crop["height"].toInt() << "," << std::endl;
+            img = img.copy(r);
         }
         // actual cropping, relative to whatever img is now
         if ( m_settings.crop_rect.isValid() )
@@ -282,7 +282,7 @@ void IchabodConverter::saveToOutput()
         }
         if ( !img.save(&file,m_settings.fmt.toLocal8Bit().constData(), m_settings.quality) )
         {
-            std::cerr << "failure to save output file: " << m_settings.out << " as " << m_settings.fmt << std::endl;            
+            std::cerr << "failure to save output file: " << m_settings.out << " as " << m_settings.fmt << " img: " << img.width() << "x" << img.height() << std::endl;
         }
     }
 }

@@ -278,6 +278,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.quality = 50; // reasonable size/speed tradeoff by default
         settings.out = output;
         settings.screenWidth = width;
+        settings.loadPage.virtualWidth = width;
         settings.screenHeight = height;
         settings.transparent = transparent;
         settings.looping = false;
@@ -287,6 +288,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         settings.crop_rect = crop_rect;
         settings.css = css;
         settings.selector = selector;
+        settings.loadPage.selector = selector;
         settings.loadPage.load_timeout_msec = load_timeout_msec;
         QList<QString> scripts;
         scripts.append(js);
