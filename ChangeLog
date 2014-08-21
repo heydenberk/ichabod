@@ -1,4 +1,8 @@
-2014-08-14 version 0.0.10
+2014-08-21 version 0.0.12
+	* handle iframe loading better
+	* improved error reporting
+
+2014-08-14 version 0.0.11
 	* handle animated high-color frames better
 
 2014-08-13 version 0.0.10
