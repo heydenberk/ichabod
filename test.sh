@@ -146,9 +146,89 @@ function test004()
     fi
 }
 
+function test012()
+{
+
+    echo "Testing v0.0.12 api"
+
+    # 
+    read -r -d '' MISSING_DIV <<EOF
+<html>
+    <head>
+    </head>
+    <body>
+        <div id='test_1' style='position:absolute;width:100px;height:100px;background-color:yellow;top:50px;left:200px;'></div>
+        <div id='test_2' style='position:absolute;width:200px;height:50px;background-color:green;top:250px;left:100px;'></div>
+        <div id='test_3' style='position:absolute;width:40px;height:300px;background-color:blue;top:200px;left:400px;'></div>
+        <script type='text/javascript'>
+            window.setTimeout(function() {
+                var newDiv = document.createElement('div');
+                newDiv.id = 'test_4';
+                newDiv.style.cssText = 'position:absolute;width:25px;height:25px;background-color:red;top:5px;left:5px;';
+                document.body.appendChild(newDiv);
+            }, 2000);
+        </script>
+    </body>
+</html>
+EOF
+    MISSING=$(curl -s -X POST http://localhost:$PORT/003 --data "html=$MISSING_DIV&width=100&height=100&format=png&output=$HELLO_FILE&selector=#test_4&js=(function(){if (typeof(mt_main) === 'function'){return mt_main();}else{ichabod.snapshotPage();ichabod.saveToOutput();return JSON.stringify([]);}})()")
+    if [ "true" != "$(echo $MISSING | jq .conversion)" ]; then
+        die "Unable to find missing div: $MISSING"
+    fi
+    if [ "null" != "$(echo $MISSING | jq .errors)" ]; then
+        die "Unexpected error finding missing div: $MISSING"
+    fi
+
+    read -r -d '' NEW_DIV <<EOF
+<html>
+    <head>
+    </head>
+    <body>
+        <div id="test_1" style="position:absolute;width:100px;height:100px;background-color:yellow;top:50px;left:200px;"></div>
+        <div id="test_2" style="position:absolute;width:200px;height:50px;background-color:green;top:250px;left:100px;"></div>
+        <div id="test_3" style="position:absolute;width:0px;height:0px;background-color:blue;top:200px;left:400px;"></div>
+        <script type="text/javascript">
+            window.setTimeout(function() {
+                var divToChange = document.getElementById('test_3');
+                divToChange.style.height = '20px';
+                divToChange.style.width = '20px';
+            }, 3000);
+        </script>
+    </body>
+</html>
+EOF
+    NEW=$(curl -s -X POST http://localhost:$PORT/003 --data "html=$NEW_DIV&width=100&height=100&format=png&output=$HELLO_FILE&selector=#test_3&js=(function(){if (typeof(mt_main) === 'function'){return mt_main();}else{ichabod.snapshotPage();ichabod.saveToOutput();return JSON.stringify([]);}})()")
+    if [ "true" != "$(echo $NEW | jq .conversion)" ]; then
+        die "Unable to find new div: $NEW"
+    fi
+    if [ "null" != "$(echo $NEW | jq .errors)" ]; then
+        die "Unexpected error finding new div: $NEW"
+    fi
+
+    read -r -d '' REALLY_MISSING_DIV <<EOF
+<html>
+    <head>
+    </head>
+    <body>
+        <div id="test_1" style="position:absolute;width:100px;height:100px;background-color:yellow;top:50px;left:200px;"></div>
+        <div id="test_2" style="position:absolute;width:200px;height:50px;background-color:green;top:250px;left:100px;"></div>
+    </body>
+</html>
+EOF
+    REALLYMISSING=$(curl -s -X POST http://localhost:$PORT/003 --data "html=$REALLY_MISSING_DIV&width=100&height=100&format=png&output=$HELLO_FILE&selector=#test_3&js=(function(){if (typeof(mt_main) === 'function'){return mt_main();}else{ichabod.snapshotPage();ichabod.saveToOutput();return JSON.stringify([]);}})()")
+    if [ "true" == "$(echo $REALLYMISSING | jq .conversion)" ]; then
+        die "Unexpected successful conversion of missing div: $REALLYMISSING"
+    fi
+    if [ "null" == "$(echo $REALLYMISSING | jq .errors)" ]; then
+        die "Unexpected error finding missing div: $REALLYMISSING"
+    fi
+
+}
+
 test001
 test002
 #test003
 test004
+test012
 cleanup
 echo "Testing successful."
