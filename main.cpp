@@ -271,6 +271,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
 
         IchabodSettings settings;
         settings.verbosity = g_verbosity;
+        settings.loadPage.verbosity = g_verbosity;
         settings.loadPage.loadErrorHandling = wkhtmltopdf::settings::LoadPage::skip;
         settings.rasterizer = rasterizer;
         settings.fmt = format;
