@@ -1,3 +1,7 @@
+2014-08-22 version 0.0.13
+	* improved logging
+	* report more errors/warnings to client
+
 2014-08-21 version 0.0.12
 	* handle iframe loading better
 	* improved error reporting
