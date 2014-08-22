@@ -115,15 +115,8 @@ function test004()
 
     # simple image
     HELLO=$(curl -s -X POST http://localhost:$PORT/003 --data "html=<html><head></head><body style='background-color: red;'><div style='background-color: blue; color: white;'>helloworld</div></body></html>&width=100&height=100&format=png&output=$HELLO_FILE")
-    HELLO_EXPECTED=$(printf "{
-   \"conversion\" : true,
-   \"errors\" : null,
-   \"path\" : \"$HELLO_FILE\",
-   \"result\" : null,
-   \"warnings\" : null
-}")
-    if [ "$HELLO" != "$HELLO_EXPECTED" ]; then
-        die "Invalid hello world result: [$HELLO] expected: [$HELLO_EXPECTED]"
+    if [ "true" != "$(echo $HELLO | jq .conversion)" ]; then
+        die "Failure to convert: $HELLO"
     fi
     if [ ! -s $HELLO_FILE ]; then
         die "Hello world result file missing: [$HELLO_FILE]"
@@ -131,15 +124,8 @@ function test004()
 
     # animated image
     ANIM=$(curl -s -X POST http://localhost:$PORT/003 --data "html=<html><head></head><body style='background-color: red;'><div id='word' style='background-color: blue; color: darkgrey;'>hello</div></body></html>&width=100&height=100&format=gif&output=$ANIM_FILE&js=(function(){ichabod.setTransparent(0); ichabod.snapshotPage(); document.getElementById('word').innerHTML='world'; ichabod.snapshotPage(); ichabod.saveToOutput(); return 42;})();")
-    ANIM_EXPECTED=$(printf "{
-   \"conversion\" : true,
-   \"errors\" : null,
-   \"path\" : \"$ANIM_FILE\",
-   \"result\" : 42,
-   \"warnings\" : null
-}")
-    if [ "$ANIM" != "$ANIM_EXPECTED" ]; then
-        die "Invalid animated result: [$ANIM] expected: [$ANIM_EXPECTED]"
+    if [ "true" != "$(echo $ANIM | jq .conversion)" ]; then
+        die "Failure to convert: $ANIM"
     fi
     if [ ! -s $ANIM_FILE ]; then
         die "Animated result file missing: [$ANIM_FILE]"
