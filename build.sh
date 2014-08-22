@@ -31,6 +31,7 @@ make
 popd
 popd
 
+/bin/cp -f wkhtmltopdf/src/lib/*.hh wkhtmltopdf/include/wkhtmltox/
 wkhtmltopdf/static-build/centos/qt/bin/qmake ichabod.pro
 make
 
