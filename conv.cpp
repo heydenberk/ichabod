@@ -7,6 +7,7 @@
 #include <QDateTime>
 #include <iostream>
 #include <algorithm> 
+#include <time.h>
 
 // overload to allow QString output
 std::ostream& operator<<(std::ostream& str, const QString& string) 
@@ -367,14 +368,27 @@ void IchabodConverter::debugSettings(bool success_status)
     }
 }
 
-bool IchabodConverter::convert(QString& result, QVector<QString>& warnings, QVector<QString>& errors)
+#define NANOS 1000000000LL
+#define USED_CLOCK CLOCK_MONOTONIC
+
+bool IchabodConverter::convert(QString& result, QVector<QString>& warnings, QVector<QString>& errors, double& elapsedms)
 {
     m_images.clear();
     m_delays.clear();
     m_warnings.clear();
     m_errors.clear();
     wkhtmltopdf::ProgressFeedback feedback(true, *this);
+
+    timespec time1, time2;
+    clock_gettime(USED_CLOCK, &time1);
+    long long start = time1.tv_sec*NANOS + time1.tv_nsec;
+
     bool success = wkhtmltopdf::ImageConverter::convert();  
+
+    clock_gettime(USED_CLOCK, &time2);
+    long long diff = time2.tv_sec*NANOS + time2.tv_nsec - start;
+    elapsedms = (diff / 1000 + (diff % 1000 >= 500) /*round up halves*/) / 1000.0; 
+
     debugSettings(success);
     result = scriptResult();
     warnings = m_warnings;

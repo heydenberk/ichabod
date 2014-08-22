@@ -21,7 +21,7 @@
 #include "quant.h"
 
 #define ICHABOD_NAME "ichabod"
-#define LOG_STRING "%1 %2x%3 %4 %5" // input wxh format output
+#define LOG_STRING "%1 %2x%3 %4 %5 %6 %7x%8+%9+%10 [%11ms]" // input WxH format output selector croprect [elapsedms]
 
 int g_verbosity = 0;
 QString g_quantize = "MEDIANCUT";
@@ -40,6 +40,7 @@ static int send_error(struct mg_connection* conn, const char* err)
 
     Json::Value root;
     root["path"] = Json::Value();
+    root["elapsed"] = Json::Value();
     root["conversion"] = false;
     root["output"] = Json::Value();
     root["result"] = Json::Value();
@@ -81,7 +82,8 @@ static int handle_001(struct mg_connection *conn, IchabodSettings& settings)
     QString result;
     QVector<QString> warnings;
     QVector<QString> errors;
-    converter.convert(result, warnings, errors);
+    double elapsedms;
+    converter.convert(result, warnings, errors, elapsedms);
     QString json = QString("{\"path\": \"%1\", \"result\": \"%2\"}").arg(settings.out, result);
     mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
     return MG_TRUE;
@@ -107,7 +109,8 @@ static int handle_002(struct mg_connection *conn, IchabodSettings& settings)
     QString result;
     QVector<QString> warnings;
     QVector<QString> errors;
-    converter.convert(result, warnings, errors);
+    double elapsedms;
+    converter.convert(result, warnings, errors, elapsedms);
     QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, result);
     mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
     return MG_TRUE;
@@ -124,7 +127,8 @@ static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
     QString result;
     QVector<QString> warnings;
     QVector<QString> errors;
-    bool conversion_success = converter.convert(result, warnings, errors);
+    double elapsedms;
+    bool conversion_success = converter.convert(result, warnings, errors, elapsedms);
     Json::Value root;
     root["path"] = settings.out.toLocal8Bit().constData();
 
@@ -138,6 +142,7 @@ static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
     }
     root["result"] = result_root;
     root["conversion"] = conversion_success;
+    root["elapsed"] = elapsedms;
     Json::Value js_warnings;
     for( QVector<QString>::iterator it = warnings.begin();
          it != warnings.end();
@@ -157,6 +162,13 @@ static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
     Json::StyledWriter writer;
     std::string json = writer.write(root);
     mg_send_data(conn, json.c_str(), json.length());
+
+    QString xtra = QString(LOG_STRING).arg(settings.in).arg(settings.screenWidth).arg(settings.screenHeight).arg(settings.out).arg(settings.fmt)
+        .arg(settings.selector)
+        .arg(settings.crop_rect.width()).arg(settings.crop_rect.height()).arg(settings.crop_rect.x()).arg(settings.crop_rect.y())
+        .arg(elapsedms);
+    log( conn, xtra.toLocal8Bit().constData() );
+
     return MG_TRUE;
 }
 
@@ -164,7 +176,7 @@ static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
 static int handle_health(struct mg_connection *conn)
 {
     send_headers(conn);
-    char health[4] = {0xF0, 0x9F, 0x91, 0xBB};
+    char health[4] = {(char)0xF0, (char)0x9F, (char)0x91, (char)0xBB};
     QString vigor = get_var(conn, "vigor");
     if ( vigor.length() )
     {
@@ -266,9 +278,6 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             format = "png";
         }
 
-        QString xtra = QString(LOG_STRING).arg(input).arg(width).arg(height).arg(output).arg(format);
-        log( conn, xtra.toLocal8Bit().constData() );
-
         IchabodSettings settings;
         settings.verbosity = g_verbosity;
         settings.loadPage.verbosity = g_verbosity;
@@ -294,11 +303,6 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QList<QString> scripts;
         scripts.append(js);
         settings.loadPage.runScript = scripts;
-
-        if ( g_verbosity )
-        {
-            std::cout << conn->uri << std::endl;
-        }
 
         if ( canonical_path == "004" || canonical_path == "003" )
         {
@@ -350,6 +354,7 @@ int main(int argc, char *argv[])
     QRegExp rxVerbose("--verbosity=([0-9]{1,})");
     QRegExp rxQuantize("--quantize=([a-zA-Z]{1,})");
     QRegExp rxVersion("--version");
+    QRegExp rxShortVersion("-v");
 
     for (int i = 1; i < args.size(); ++i) {
         if (rxPort.indexIn(args.at(i)) != -1 )
@@ -380,6 +385,11 @@ int main(int argc, char *argv[])
             ppm_init( &argc, argv );
             return 0;
         }
+        else if (rxShortVersion.indexIn(args.at(i)) != -1)
+        {
+            std::cout << ICHABOD_VERSION << std::endl;
+            return 0;
+        }
         else 
         {
             std::cerr << "Uknown arg:" << args.at(i).toLocal8Bit().constData() << std::endl;
@@ -397,7 +407,7 @@ int main(int argc, char *argv[])
         std::cerr << "Cannot bind to port:" << port << " [" << err << "], exiting." << std::endl;
         return -1;
     }
-    std::cout << "Starting on port " << mg_get_option(server, "listening_port") << std::endl;
+    std::cout << ICHABOD_NAME << " " << ICHABOD_VERSION << " starting on port " << mg_get_option(server, "listening_port") << std::endl;
     for (;;) 
     {
         mg_poll_server(server, 1000);

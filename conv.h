@@ -31,7 +31,7 @@ public:
     IchabodConverter(IchabodSettings & settings, const QString * data=0);
     ~IchabodConverter();
 
-    bool convert(QString& result, QVector<QString>& warnings, QVector<QString>& errors);
+    bool convert(QString& result, QVector<QString>& warnings, QVector<QString>& errors, double& elapsed);
 public slots:
     void setTransparent( bool t );
     void setQuality( int q );

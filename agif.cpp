@@ -476,7 +476,7 @@ void makeIndexedImage( const QuantizeMethod method, QImage& img, const QVector<Q
     }
     if ( img.colorCount() != 256 )
     {
-        std::cerr << "WARNING: forcing color count (" << img.colorCount() << ") to 256" << std::endl;
+        //std::cerr << "WARNING: forcing color count (" << img.colorCount() << ") to 256" << std::endl;
         img.setColorCount( 256 );
     }
 }
