@@ -24,6 +24,7 @@
 #define LOG_STRING "%1 %2x%3 %4 %5 %6 %7x%8+%9+%10 [%11ms]" // input WxH format output selector croprect [elapsedms]
 
 int g_verbosity = 0;
+int g_slow_response_ms = 15 * 1000;
 QString g_quantize = "MEDIANCUT";
 
 void log( struct mg_connection* conn, const char* extra )
@@ -280,6 +281,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
 
         IchabodSettings settings;
         settings.verbosity = g_verbosity;
+        settings.slow_response_ms = g_slow_response_ms;
         settings.loadPage.verbosity = g_verbosity;
         settings.loadPage.loadErrorHandling = wkhtmltopdf::settings::LoadPage::skip;
         settings.rasterizer = rasterizer;
@@ -352,6 +354,7 @@ int main(int argc, char *argv[])
     QStringList args = app.arguments();
     QRegExp rxPort("--port=([0-9]{1,})");
     QRegExp rxVerbose("--verbosity=([0-9]{1,})");
+    QRegExp rxSlowResponseMs("--slow-response-ms=([0-9]{1,})");
     QRegExp rxQuantize("--quantize=([a-zA-Z]{1,})");
     QRegExp rxVersion("--version");
     QRegExp rxShortVersion("-v");
@@ -364,6 +367,10 @@ int main(int argc, char *argv[])
         else if (rxVerbose.indexIn(args.at(i)) != -1 ) 
         {
             g_verbosity = rxVerbose.cap(1).toInt();
+        }
+        else if (rxSlowResponseMs.indexIn(args.at(i)) != -1 ) 
+        {
+            g_slow_response_ms = rxSlowResponseMs.cap(1).toInt();
         }
         else if (rxQuantize.indexIn(args.at(i)) != -1 ) 
         {
@@ -407,7 +414,7 @@ int main(int argc, char *argv[])
         std::cerr << "Cannot bind to port:" << port << " [" << err << "], exiting." << std::endl;
         return -1;
     }
-    std::cout << ICHABOD_NAME << " " << ICHABOD_VERSION << " starting on port " << mg_get_option(server, "listening_port") << std::endl;
+    std::cout << ICHABOD_NAME << " " << ICHABOD_VERSION << " (port:" << mg_get_option(server, "listening_port") << " verbosity:" << g_verbosity << " slow-response:" << g_slow_response_ms << "ms)" << std::endl;
     for (;;) 
     {
         mg_poll_server(server, 1000);
