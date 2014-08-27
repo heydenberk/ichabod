@@ -309,12 +309,12 @@ void IchabodConverter::saveToOutput()
     }
 }
 
-void IchabodConverter::debugSettings(bool success_status)
+void IchabodConverter::debugSettings(int verbosity, bool success_status)
 {
-    if ( m_settings.verbosity )
+    if ( verbosity )
     {
         std::cout << "      success: " << success_status << std::endl;
-        if ( m_settings.verbosity > 1 )
+        if ( verbosity > 1 )
         {
             std::cout << "           in: " << m_settings.in << std::endl;
             std::cout << "          out: " << m_settings.out << std::endl;
@@ -330,7 +330,7 @@ void IchabodConverter::debugSettings(bool success_status)
                           << " " << m_settings.crop_rect.width() << "x" << m_settings.crop_rect.height() << std::endl;
             }
         }
-        if ( m_settings.verbosity > 2 )
+        if ( verbosity > 2 )
         {
             QFileInfo fi(m_settings.out);
             std::cout << "        bytes: " << fi.size() << std::endl;
@@ -350,7 +350,7 @@ void IchabodConverter::debugSettings(bool success_status)
                 std::cout << "         error: " << *it << std::endl;
             }
         }
-        if ( m_settings.verbosity > 3 )
+        if ( verbosity > 3 )
         {
             QFile fil_read(m_settings.in);
             fil_read.open(QIODevice::ReadOnly);
@@ -389,7 +389,7 @@ bool IchabodConverter::convert(QString& result, QVector<QString>& warnings, QVec
     long long diff = time2.tv_sec*NANOS + time2.tv_nsec - start;
     elapsedms = (diff / 1000 + (diff % 1000 >= 500) /*round up halves*/) / 1000.0; 
 
-    debugSettings(success);
+    debugSettings(elapsedms > m_settings.slow_response_ms ? 4 : m_settings.verbosity, success);
     result = scriptResult();
     warnings = m_warnings;
     errors = m_errors;

@@ -22,6 +22,7 @@ struct IchabodSettings : public wkhtmltopdf::settings::ImageGlobal
     QRect crop_rect;
     QString css;
     QString selector;
+    int slow_response_ms;
 };
 
 class IchabodConverter: public wkhtmltopdf::ImageConverter 
@@ -52,7 +53,7 @@ private slots:
     void slotJavascriptWarning(QString s);
     void slotJavascriptError(QString s);
 private:
-    void debugSettings(bool success_status);
+    void debugSettings(int verbosity, bool success_status);
     IchabodSettings m_settings;
     QWebPage* m_activePage;
     QVector<QImage> m_images;
