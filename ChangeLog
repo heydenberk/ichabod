@@ -1,3 +1,6 @@
+2014-09-26 version 0.0.15
+	* fix for handling sites which alter body.scrollHeight
+
 2014-08-27 version 0.0.14
 	* add slow response threshold, with increased logging
 
@@ -17,7 +20,7 @@
 
 2014-08-06 version 0.0.9
 	* fix for low-color gifs
-	
+
 2014-08-05 version 0.0.8
 	* report errors to client
 	* added crop feature
