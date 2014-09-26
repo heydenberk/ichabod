@@ -163,7 +163,6 @@ void IchabodConverter::internalSnapshot( int msec_delay, const QRect& crop )
 
     // Calculate a good width for the image
     int highWidth=m_settings.screenWidth;
-    m_activePage->setViewportSize(QSize(highWidth, 10));
     if (m_settings.smartWidth && frame->scrollBarMaximum(Qt::Horizontal) > 0) 
     {
         if (highWidth < 10)
@@ -200,7 +199,27 @@ void IchabodConverter::internalSnapshot( int msec_delay, const QRect& crop )
     }
     else
     {
-        m_activePage->setViewportSize(QSize(highWidth, frame->contentsSize().height()));
+        int content_height = frame->contentsSize().height();
+        if ( content_height <= m_activePage->viewportSize().height() )
+        {
+            // Sanity check for those sites which deliberately mess
+            // with body.scrollHeight. Check all top-level elements
+            // and figure out the total scroll height. This code
+            // should only fire on a small minority of sites.
+            QString s = "a = document.body.childNodes;"
+                "var max_child_height = 0;"
+                "for ( var i in a ) {"
+                "  e = a[i];"
+                "  if (typeof e.scrollHeight != 'undefined') {max_child_height+=e.scrollHeight;}"
+                "}"
+                "max_child_height;";
+            int mh = frame->evaluateJavaScript( s ).toInt();
+            if ( mh > content_height )
+            {
+                content_height = mh;
+            }
+        }
+        m_activePage->setViewportSize(QSize(highWidth, content_height));
     }
 
     QPainter painter;
