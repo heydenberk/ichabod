@@ -163,6 +163,7 @@ void IchabodConverter::internalSnapshot( int msec_delay, const QRect& crop )
 
     // Calculate a good width for the image
     int highWidth=m_settings.screenWidth;
+    m_activePage->setViewportSize(QSize(highWidth, 10));
     if (m_settings.smartWidth && frame->scrollBarMaximum(Qt::Horizontal) > 0) 
     {
         if (highWidth < 10)
