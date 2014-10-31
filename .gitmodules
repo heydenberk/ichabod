@@ -10,3 +10,6 @@
 [submodule "jsoncpp"]
 	path = jsoncpp
         url = https://github.com/open-source-parsers/jsoncpp.git
+[submodule "statsd-client-cpp"]
+	path = statsd-client-cpp
+	url = https://github.com/moseymosey/statsd-client-cpp
