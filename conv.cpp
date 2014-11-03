@@ -9,8 +9,6 @@
 #include <algorithm> 
 #include <time.h>
 
-statsd::StatsdClient STATSD2("10.65.155.220", 8125, "ichabod.");
-
 // overload to allow QString output
 std::ostream& operator<<(std::ostream& str, const QString& string) 
 {
