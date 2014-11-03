@@ -9,6 +9,8 @@
 #include <algorithm> 
 #include <time.h>
 
+statsd::StatsdClient STATSD2("10.65.155.220", 8125, "ichabod.");
+
 // overload to allow QString output
 std::ostream& operator<<(std::ostream& str, const QString& string) 
 {
@@ -409,6 +411,10 @@ bool IchabodConverter::convert(QString& result, QVector<QString>& warnings, QVec
     long long diff = time2.tv_sec*NANOS + time2.tv_nsec - start;
     elapsedms = (diff / 1000 + (diff % 1000 >= 500) /*round up halves*/) / 1000.0; 
 
+    if ( m_settings.statsd )
+    {
+        m_settings.statsd->timing("convert", elapsedms);
+    }
     debugSettings(elapsedms > m_settings.slow_response_ms ? 4 : m_settings.verbosity, success);
     result = scriptResult();
     warnings = m_warnings;

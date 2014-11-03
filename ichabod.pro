@@ -40,6 +40,10 @@ SOURCES += giflib/lib/dgif_lib.c giflib/lib/egif_lib.c giflib/lib/gifalloc.c gif
 INCLUDEPATH += jsoncpp/include
 LIBS += -Ljsoncpp/build/lib -ljsoncpp
 
+# statsd
+INCLUDEPATH += statsd-client-cpp/src
+SOURCES += statsd-client-cpp/src/statsd_client.cpp
+
 # ichabod
 HEADERS += conv.h
 SOURCES += agif.cpp conv.cpp main.cpp mediancut.cpp
