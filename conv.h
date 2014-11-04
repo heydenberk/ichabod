@@ -10,6 +10,7 @@
 #include <utility>
 #include "quant.h"
 #include <iostream>
+#include "statsd_client.h"
 
 std::ostream& operator<<(std::ostream& str, const QString& string); // convenience
 
@@ -23,6 +24,8 @@ struct IchabodSettings : public wkhtmltopdf::settings::ImageGlobal
     QString css;
     QString selector;
     int slow_response_ms;
+    std::string statsd_ns; // interop with statsd code
+    statsd::StatsdClient* statsd;
 };
 
 class IchabodConverter: public wkhtmltopdf::ImageConverter 

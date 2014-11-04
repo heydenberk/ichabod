@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 
 #include <QApplication>
 #include <QString>
@@ -26,6 +27,7 @@
 int g_verbosity = 0;
 int g_slow_response_ms = 15 * 1000;
 QString g_quantize = "MEDIANCUT";
+statsd::StatsdClient g_statsd;
 
 void log( struct mg_connection* conn, const char* extra )
 {
@@ -72,24 +74,6 @@ static QString get_var( struct mg_connection *conn, const char* var_name, const 
     return QString(data);
 }
 
-static int handle_001(struct mg_connection *conn, IchabodSettings& settings)
-{
-    mg_send_header(conn, "Content-Type", "application/json");
-    if ( !settings.loadPage.runScript.size() )
-    {
-        return send_error(conn, "Internal error: no scripts");
-    }
-    IchabodConverter converter(settings);
-    QString result;
-    QVector<QString> warnings;
-    QVector<QString> errors;
-    double elapsedms;
-    converter.convert(result, warnings, errors, elapsedms);
-    QString json = QString("{\"path\": \"%1\", \"result\": \"%2\"}").arg(settings.out, result);
-    mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
-    return MG_TRUE;
-}
-
 static void send_headers(struct mg_connection* conn)
 {
     mg_send_header(conn, "Content-Type", "application/json");
@@ -99,25 +83,7 @@ static void send_headers(struct mg_connection* conn)
     mg_send_header(conn, "Server", QString("%1 %2").arg(ICHABOD_NAME).arg(ICHABOD_VERSION).toLocal8Bit().constData());
 }
 
-static int handle_002(struct mg_connection *conn, IchabodSettings& settings)
-{
-    send_headers(conn);
-    if ( !settings.loadPage.runScript.size() )
-    {
-        return send_error(conn, "Internal error: no scripts");
-    }
-    IchabodConverter converter(settings);
-    QString result;
-    QVector<QString> warnings;
-    QVector<QString> errors;
-    double elapsedms;
-    converter.convert(result, warnings, errors, elapsedms);
-    QString json = QString("{\"path\": \"%1\", \"result\": %2}").arg(settings.out, result);
-    mg_send_data(conn, json.toLocal8Bit().constData(), json.length());
-    return MG_TRUE;
-}
-
-static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
+static int handle_default(struct mg_connection *conn, IchabodSettings& settings)
 {
     send_headers(conn);
     if ( !settings.loadPage.runScript.size() )
@@ -164,6 +130,11 @@ static int handle_003(struct mg_connection *conn, IchabodSettings& settings)
     std::string json = writer.write(root);
     mg_send_data(conn, json.c_str(), json.length());
 
+    if ( settings.statsd )
+    {
+        settings.statsd->inc(settings.statsd_ns + "request");
+    }
+
     QString xtra = QString(LOG_STRING).arg(settings.in).arg(settings.screenWidth).arg(settings.screenHeight).arg(settings.out).arg(settings.fmt)
         .arg(settings.selector)
         .arg(settings.crop_rect.width()).arg(settings.crop_rect.height()).arg(settings.crop_rect.x()).arg(settings.crop_rect.y())
@@ -191,11 +162,6 @@ static int handle_health(struct mg_connection *conn)
     }
     mg_send_data(conn, "", 0);
     return MG_TRUE;
-}
-
-static int handle_default(struct mg_connection *conn, IchabodSettings& settings)
-{
-    return handle_003(conn, settings);
 }
 
 // handler for all incoming connections
@@ -231,6 +197,8 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QString css = get_var(conn, "css");
         QString selector = get_var(conn, "selector");
         int load_timeout_msec = get_var(conn, "load_timeout", "0").toInt();
+        int enable_statsd = get_var(conn, "enable_statsd", "0").toInt();
+        std::string statsd_ns(get_var(conn, "statsd_ns").toLocal8Bit().constData());
         QRect crop_rect;
         if ( crop_x || crop_y || crop_w || crop_h )
         {
@@ -305,33 +273,11 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QList<QString> scripts;
         scripts.append(js);
         settings.loadPage.runScript = scripts;
-
-        if ( canonical_path == "004" || canonical_path == "003" )
+        settings.statsd = 0;
+        if ( enable_statsd )
         {
-            return handle_003(conn, settings);
-        }
-        if ( canonical_path == "002" )
-        {
-            return handle_002(conn, settings);
-        }
-        if ( canonical_path == "evaluate" )
-        {
-            if ( js.isEmpty() )
-            {
-                return send_error(conn, "Nothing to evaluate");                
-            }
-            QList<QString> scripts;
-            scripts.append("(function(){ichabod.snapshotPage();ichabod.saveToOutput();})()");
-            scripts.append(js);
-            settings.loadPage.runScript = scripts;
-            return handle_001(conn, settings);
-        }
-        if ( canonical_path == "rasterize" || canonical_path == "001" )
-        {
-            QList<QString> scripts;
-            scripts.append("(function(){ichabod.snapshotPage();ichabod.saveToOutput();})()");
-            settings.loadPage.runScript = scripts;
-            return handle_001(conn, settings);            
+            settings.statsd_ns = statsd_ns + (statsd_ns.length() ? "." : "");
+            settings.statsd = &g_statsd;
         }
         return handle_default(conn, settings);
     } 
@@ -349,6 +295,15 @@ int main(int argc, char *argv[])
     MyLooksStyle * style = new MyLooksStyle();
     app.setStyle(style);
 
+    struct statsd_info 
+    {
+        statsd_info() : host("127.0.0.1"), port(8125), ns(std::string(ICHABOD_NAME)+"."), enabled(false) {}
+        std::string host;
+        int port;
+        std::string ns;
+        bool enabled;
+    };
+    statsd_info statsd;
 
     int port = 9090;
     QStringList args = app.arguments();
@@ -358,6 +313,9 @@ int main(int argc, char *argv[])
     QRegExp rxQuantize("--quantize=([a-zA-Z]{1,})");
     QRegExp rxVersion("--version");
     QRegExp rxShortVersion("-v");
+    QRegExp rxStatsdHost("--statsd-host=([^ ]+)");
+    QRegExp rxStatsdPort("--statsd-port=([0-9]{1,})");
+    QRegExp rxStatsdNs("--statsd-ns=([^ ]+)");
 
     for (int i = 1; i < args.size(); ++i) {
         if (rxPort.indexIn(args.at(i)) != -1 )
@@ -381,6 +339,7 @@ int main(int argc, char *argv[])
             std::cout << ICHABOD_NAME << " version " << ICHABOD_VERSION << std::endl;
             std::cout << "** The GIFLIB distribution is Copyright (c) 1997  Eric S. Raymond" << std::endl;
             std::cout << "** ppmquant is Copyright (C) 1989, 1991 by Jef Poskanzer." << std::endl;
+            std::cout << "** statsd-client-cpp is Copyright (c) 2014, Rex" << std::endl;
             std::cout << "**" << std::endl;
             std::cout << "** Permission to use, copy, modify, and distribute this software and its" << std::endl;
             std::cout << "** documentation for any purpose and without fee is hereby granted, provided" << std::endl;
@@ -397,9 +356,28 @@ int main(int argc, char *argv[])
             std::cout << ICHABOD_VERSION << std::endl;
             return 0;
         }
+        else if (rxStatsdHost.indexIn(args.at(i)) != -1)
+        {
+            statsd.host = rxStatsdHost.cap(1).toLocal8Bit().constData();
+            statsd.enabled = true;
+        }
+        else if (rxStatsdPort.indexIn(args.at(i)) != -1)
+        {
+            statsd.port = rxStatsdPort.cap(1).toInt();
+            statsd.enabled = true;
+        }
+        else if (rxStatsdNs.indexIn(args.at(i)) != -1)
+        {
+            statsd.ns = rxStatsdNs.cap(1).toLocal8Bit().constData();
+            if ( statsd.ns.length() && *statsd.ns.rbegin() != '.' )
+            {
+                statsd.ns += ".";
+            }
+            statsd.enabled = true;
+        }
         else 
         {
-            std::cerr << "Uknown arg:" << args.at(i).toLocal8Bit().constData() << std::endl;
+            std::cerr << "Unknown arg:" << args.at(i).toLocal8Bit().constData() << std::endl;
             return -1;
         }
     }
@@ -414,7 +392,17 @@ int main(int argc, char *argv[])
         std::cerr << "Cannot bind to port:" << port << " [" << err << "], exiting." << std::endl;
         return -1;
     }
-    std::cout << ICHABOD_NAME << " " << ICHABOD_VERSION << " (port:" << mg_get_option(server, "listening_port") << " verbosity:" << g_verbosity << " slow-response:" << g_slow_response_ms << "ms)" << std::endl;
+    std::cout << ICHABOD_NAME << " " << ICHABOD_VERSION 
+              << " (port:" << mg_get_option(server, "listening_port") 
+              << " verbosity:" << g_verbosity 
+              << " slow-response:" << g_slow_response_ms << "ms";
+    if ( statsd.enabled )
+    {
+        std::cout << " statsd:" << statsd.host << ":" << statsd.port << "[" << statsd.ns << "]";
+        g_statsd.config(statsd.host, statsd.port, statsd.ns);
+    }
+    std::cout << ")" << std::endl;
+
     for (;;) 
     {
         mg_poll_server(server, 1000);
