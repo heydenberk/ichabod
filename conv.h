@@ -24,6 +24,7 @@ struct IchabodSettings : public wkhtmltopdf::settings::ImageGlobal
     QString css;
     QString selector;
     int slow_response_ms;
+    std::string statsd_ns; // interop with statsd code
     statsd::StatsdClient* statsd;
 };
 

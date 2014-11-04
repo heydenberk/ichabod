@@ -132,7 +132,7 @@ static int handle_default(struct mg_connection *conn, IchabodSettings& settings)
 
     if ( settings.statsd )
     {
-        settings.statsd->inc("request");
+        settings.statsd->inc(settings.statsd_ns + "request");
     }
 
     QString xtra = QString(LOG_STRING).arg(settings.in).arg(settings.screenWidth).arg(settings.screenHeight).arg(settings.out).arg(settings.fmt)
@@ -197,6 +197,8 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QString css = get_var(conn, "css");
         QString selector = get_var(conn, "selector");
         int load_timeout_msec = get_var(conn, "load_timeout", "0").toInt();
+        int enable_statsd = get_var(conn, "enable_statsd", "0").toInt();
+        std::string statsd_ns(get_var(conn, "statsd_ns").toLocal8Bit().constData());
         QRect crop_rect;
         if ( crop_x || crop_y || crop_w || crop_h )
         {
@@ -271,7 +273,12 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
         QList<QString> scripts;
         scripts.append(js);
         settings.loadPage.runScript = scripts;
-        settings.statsd = &g_statsd;
+        settings.statsd = 0;
+        if ( enable_statsd )
+        {
+            settings.statsd_ns = statsd_ns + (statsd_ns.length() ? "." : "");
+            settings.statsd = &g_statsd;
+        }
         return handle_default(conn, settings);
     } 
     else if (ev == MG_AUTH) 
@@ -290,10 +297,11 @@ int main(int argc, char *argv[])
 
     struct statsd_info 
     {
-        statsd_info() : host("127.0.0.1"), port(8125), ns(std::string(ICHABOD_NAME)+".") {}
+        statsd_info() : host("127.0.0.1"), port(8125), ns(std::string(ICHABOD_NAME)+"."), enabled(false) {}
         std::string host;
         int port;
         std::string ns;
+        bool enabled;
     };
     statsd_info statsd;
 
@@ -351,14 +359,21 @@ int main(int argc, char *argv[])
         else if (rxStatsdHost.indexIn(args.at(i)) != -1)
         {
             statsd.host = rxStatsdHost.cap(1).toLocal8Bit().constData();
+            statsd.enabled = true;
         }
         else if (rxStatsdPort.indexIn(args.at(i)) != -1)
         {
             statsd.port = rxStatsdPort.cap(1).toInt();
+            statsd.enabled = true;
         }
         else if (rxStatsdNs.indexIn(args.at(i)) != -1)
         {
             statsd.ns = rxStatsdNs.cap(1).toLocal8Bit().constData();
+            if ( statsd.ns.length() && *statsd.ns.rbegin() != '.' )
+            {
+                statsd.ns += ".";
+            }
+            statsd.enabled = true;
         }
         else 
         {
@@ -381,7 +396,7 @@ int main(int argc, char *argv[])
               << " (port:" << mg_get_option(server, "listening_port") 
               << " verbosity:" << g_verbosity 
               << " slow-response:" << g_slow_response_ms << "ms";
-    if ( statsd.host.length() )
+    if ( statsd.enabled )
     {
         std::cout << " statsd:" << statsd.host << ":" << statsd.port << "[" << statsd.ns << "]";
         g_statsd.config(statsd.host, statsd.port, statsd.ns);
