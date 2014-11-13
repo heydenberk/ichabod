@@ -399,6 +399,11 @@ bool IchabodConverter::convert(QString& result, QVector<QString>& warnings, QVec
     m_errors.clear();
     wkhtmltopdf::ProgressFeedback feedback(true, *this);
 
+    if ( m_settings.verbosity > 4 )
+    {
+        debugSettings(m_settings.verbosity, 0);
+    }
+
     timespec time1, time2;
     clock_gettime(USED_CLOCK, &time1);
     long long start = time1.tv_sec*NANOS + time1.tv_nsec;
