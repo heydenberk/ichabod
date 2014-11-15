@@ -44,10 +44,14 @@ LIBS += -Ljsoncpp/build/lib -ljsoncpp
 INCLUDEPATH += statsd-client-cpp/src
 SOURCES += statsd-client-cpp/src/statsd_client.cpp
 
+# netpbm
+INCLUDEPATH += /usr/include/netpbm
+LIBS += -lnetpbm
+
 # ichabod
 HEADERS += conv.h
 SOURCES += agif.cpp conv.cpp main.cpp mediancut.cpp
-LIBS += -Wl,-Bstatic -lnetpbm -Wl,-Bdynamic 
+#LIBS += -Wl,-Bstatic -lnetpbm -Wl,-Bdynamic 
 
 
 
