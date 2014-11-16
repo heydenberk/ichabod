@@ -8,18 +8,18 @@
 #include <QTextStream>
 #include <QImage>
 #include <QFileInfo>
-
-#include <wkhtmltox/utilities.hh>
-#include <wkhtmltox/imageconverter.hh>
+#include <QProxyStyle>
 
 #include "mongoose.h"
 #include "ppm.h"
 
 #include "json/json.h"
+#include "statsd_client.h"
 
 #include "version.h"
-#include "conv.h"
+//#include "conv.h"
 #include "quant.h"
+#include "engine.h"
 
 #define ICHABOD_NAME "ichabod"
 #define LOG_STRING "%1 %2x%3 %4 %5 %6 %7x%8+%9+%10 [%11ms]" // input WxH format output selector croprect [elapsedms]
@@ -83,6 +83,8 @@ static void send_headers(struct mg_connection* conn)
     mg_send_header(conn, "Server", QString("%1 %2").arg(ICHABOD_NAME).arg(ICHABOD_VERSION).toLocal8Bit().constData());
 }
 
+    /*
+
 static int handle_default(struct mg_connection *conn, IchabodSettings& settings)
 {
     send_headers(conn);
@@ -140,27 +142,16 @@ static int handle_default(struct mg_connection *conn, IchabodSettings& settings)
         .arg(settings.crop_rect.width()).arg(settings.crop_rect.height()).arg(settings.crop_rect.x()).arg(settings.crop_rect.y())
         .arg(elapsedms);
     log( conn, xtra.toLocal8Bit().constData() );
-
     return MG_TRUE;
 }
+    */
 
 
 static int handle_health(struct mg_connection *conn)
 {
     send_headers(conn);
     char health[4] = {(char)0xF0, (char)0x9F, (char)0x91, (char)0xBB};
-    QString vigor = get_var(conn, "vigor");
-    if ( vigor.length() )
-    {
-        int v = vigor.toInt();
-        if ( v > 100 ) { v = 100; }
-        if ( v < 0 ) { v = 1; }
-        for ( int i = 0; i<v; ++i)
-        {
-            mg_send_data(conn, health, 4);
-        }
-    }
-    mg_send_data(conn, "", 0);
+    mg_send_data(conn, health, 4);
     return MG_TRUE;
 }
 
@@ -247,6 +238,7 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             format = "png";
         }
 
+        /*
         IchabodSettings settings;
         settings.verbosity = g_verbosity;
         settings.slow_response_ms = g_slow_response_ms;
@@ -280,6 +272,8 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             settings.statsd = &g_statsd;
         }
         return handle_default(conn, settings);
+        */
+        return MG_FALSE;
     } 
     else if (ev == MG_AUTH) 
     {
@@ -292,7 +286,7 @@ int main(int argc, char *argv[])
 {
     bool gui = false;
     QApplication app(argc, argv, gui);
-    MyLooksStyle * style = new MyLooksStyle();
+    QProxyStyle * style = new QProxyStyle();
     app.setStyle(style);
 
     struct statsd_info 
@@ -383,6 +377,15 @@ int main(int argc, char *argv[])
     }
 
     ppm_init( &argc, argv );
+
+    
+    Settings s;
+    s.in = "/tmp/file.html";
+    Engine engine(s);
+    bool b = engine.convert();
+    return 0;
+    
+
 
     struct mg_server *server = mg_create_server(NULL, ev_handler);
 

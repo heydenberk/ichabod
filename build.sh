@@ -16,28 +16,31 @@ trap error_handler EXIT
 source common.sh
 subm
 
-./gen.py
+if [ ! -e jsoncpp/build/lib/libjsoncpp.a ]; then
+    pushd jsoncpp
+    rm -rf build
+    mkdir build
+    pushd build
+    cmake -DJSONCPP_LIB_BUILD_SHARED=OFF -G "Unix Makefiles" ../
+    make
+    popd
+    popd
+fi
 
-pushd wkhtmltopdf/static-build/centos
-./build.sh
-popd
+if [ ! -e qt_install ]; then
+    mkdir -p qt_build
+    pushd qt_build
+    ../qt/configure -opensource -confirm-license -fast -release -static -graphicssystem raster -webkit -exceptions -xmlpatterns -qt-zlib -qt-libpng -qt-libjpeg -no-libmng -no-libtiff -no-accessibility -no-stl -no-qt3support -no-phonon -no-phonon-backend -no-opengl -no-declarative -no-scripttools -no-sql-ibase -no-sql-mysql -no-sql-odbc -no-sql-psql -no-sql-sqlite -no-sql-sqlite2 -no-mmx -no-3dnow -no-sse -no-sse2 -no-multimedia -nomake demos -nomake docs -nomake examples -nomake tools -nomake tests -nomake translations -silent -script -xrender -largefile -rpath -openssl -no-dbus -no-nis -no-cups -no-iconv -no-pch -no-gtkstyle -no-nas-sound -no-sm -no-xshape -no-xinerama -no-xcursor -no-xfixes -no-xrandr -no-mitshm -no-xinput -no-xkb -no-glib -no-gstreamer -D ENABLE_VIDEO=0 -no-openvg -no-xsync -no-audio-backend -no-sse3 -no-ssse3 -no-sse4.1 -no-sse4.2 -no-avx -no-neon --prefix=../qt_install || die "cannot configure qt"
+    if ! make -j8 -q; then
+        make -j8 || die "cannot make qt"
+    fi
+    make install || die "cannot install qt"
+    popd
+    #rm -rf qt_build
+fi
 
-pushd jsoncpp
-rm -rf build
-mkdir build
-pushd build
-cmake -DJSONCPP_LIB_BUILD_SHARED=OFF -G "Unix Makefiles" ../
+./qt_install/bin/qmake ichabod.pro
 make
-popd
-popd
-
-/bin/cp -f wkhtmltopdf/src/lib/*.hh wkhtmltopdf/include/wkhtmltox/
-wkhtmltopdf/static-build/centos/qt/bin/qmake ichabod.pro
-make
-
-pushd wkhtmltopdf/static-build/centos/qt_build
-make clean
-popd
 
 ./test.sh 
 

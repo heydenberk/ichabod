@@ -16,7 +16,17 @@ public:
     QString in;
 
     int min_font_size;
-
+    QString fmt;
+    int quality;
+    QString out;
+    int screen_width;
+    int virtual_width;
+    int screen_height;
+    bool transparent;
+    QString quantize_method;
+    bool smart_width;
+    int load_timeout_msec;
+    QList<QString> run_scripts;
     int verbosity;
     QString rasterizer;
     bool looping;

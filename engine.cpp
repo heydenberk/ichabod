@@ -13,6 +13,9 @@
 Settings::Settings()
 {
     in = "";
+
+
+
     min_font_size = -1;
     verbosity = 0;
     rasterizer = "ichabod";
@@ -216,7 +219,7 @@ bool Engine::convert()
 
 void Engine::setWebSettings(QWebSettings * ws)
 {
-    ws->setPrintingMediaType("screen");
+    //ws->setPrintingMediaType("screen");
     ws->setAttribute(QWebSettings::JavaEnabled, true);
     ws->setAttribute(QWebSettings::JavascriptEnabled, true);
     ws->setAttribute(QWebSettings::JavascriptCanOpenWindows, false);
