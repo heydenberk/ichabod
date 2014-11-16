@@ -32,8 +32,8 @@ INCLUDEPATH += statsd-client-cpp/src
 SOURCES += statsd-client-cpp/src/statsd_client.cpp
 
 # netpbm
-INCLUDEPATH += /usr/include/netpbm
-LIBS += -lnetpbm
+INCLUDEPATH += netpbm netpbm/lib
+LIBS += -Lnetpbm/lib -lnetpbm
 
 # ichabod
 #HEADERS += conv.h
