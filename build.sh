@@ -16,6 +16,12 @@ trap error_handler EXIT
 source common.sh
 subm
 
+if [ ! -e netpbm/lib/libnetpbm.a ]; then
+    pushd netpbm
+    make
+    popd
+fi
+
 if [ ! -e jsoncpp/build/lib/libjsoncpp.a ]; then
     pushd jsoncpp
     rm -rf build
