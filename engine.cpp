@@ -25,7 +25,7 @@ Settings::Settings()
     screen_height = -1;
     transparent = false;
     smart_width = true;
-    load_timeout_msec = 10000;
+    load_timeout_msec = 0;
     min_font_size = -1;
     verbosity = 0;
     engine_verbosity = 0;
@@ -337,6 +337,10 @@ double Engine::convertTime() const
 
 void Engine::loadTimeout()
 {
+    if ( settings.engine_verbosity )
+    {
+        std::cout << "engine: load timeout" << std::endl;
+    }
     emit error(QString("Incomplete load: %1").arg(settings.in));
     stop(-2);
 }
@@ -345,6 +349,10 @@ bool Engine::run()
 {
     if ( settings.load_timeout_msec )
     {
+        if ( settings.engine_verbosity )
+        {
+            std::cout << "engine: load_timeout_msec: " << settings.load_timeout_msec << std::endl;
+        }
         QTimer::singleShot(settings.load_timeout_msec, this, SLOT(loadTimeout()));
     }
     timespec time1, time2;
