@@ -1,6 +1,9 @@
 #include "conv.h"
 #include "agif.h"
 #include <QApplication>
+#include <QPainter>
+#include <QFile>
+#include <QFileInfo>
 #include <QWebPage>
 #include <QWebFrame>
 #include <QWebElement>
@@ -16,114 +19,109 @@ std::ostream& operator<<(std::ostream& str, const QString& string)
 }
 
 
-IchabodConverter::IchabodConverter(IchabodSettings & s, const QString * data) 
-    : wkhtmltopdf::ImageConverter(s,data)
-    , m_settings(s)
-    , m_activePage(0)
+Converter::Converter(const Engine* engine, const Settings & s)
+    : settings(s)
+    , activePage(0)
 {
-    connect(this, SIGNAL(javascriptEnvironment(QWebPage*)), this, SLOT(slotJavascriptEnvironment(QWebPage*)));
-    connect(this, SIGNAL(warning(QString)), this, SLOT(slotJavascriptWarning(QString)));
-    connect(this, SIGNAL(error(QString)), this, SLOT(slotJavascriptError(QString)));
-
-    QObject::connect(this, SIGNAL(checkboxSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxSvg(const QString &)));
-    QObject::connect(this, SIGNAL(checkboxCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setCheckboxCheckedSvg(const QString &)));
-    QObject::connect(this, SIGNAL(radiobuttonSvgChanged(const QString &)), qApp->style(), SLOT(setRadioButtonSvg(const QString &)));
-    QObject::connect(this, SIGNAL(radiobuttonCheckedSvgChanged(const QString &)), qApp->style(), SLOT(setRadioButtonCheckedSvg(const QString &)));
+    connect(engine, SIGNAL(javascriptEnvironment(QWebPage*)), this, SLOT(slotJavascriptEnvironment(QWebPage*)));
+    connect(engine, SIGNAL(warning(QString)), this, SLOT(slotJavascriptWarning(QString)));
+    connect(engine, SIGNAL(error(QString)), this, SLOT(slotJavascriptError(QString)));
+    connect(this, SIGNAL(done(int)), engine, SLOT(stop(int)));
 }
 
-IchabodConverter::~IchabodConverter()
+Converter::~Converter()
 {
 }
 
-void IchabodConverter::setTransparent( bool t )
+void Converter::setTransparent( bool t )
 {
-    m_settings.transparent = t;
+    settings.transparent = t;
 }
 
-void IchabodConverter::setQuality( int q )
+void Converter::setQuality( int q )
 {
-    m_settings.quality = q;
+    settings.quality = q;
 }
 
-void IchabodConverter::setScreen( int w, int h )
+void Converter::setScreen( int w, int h )
 {
-    m_settings.screenWidth = w;
-    m_settings.screenHeight = h;
+    settings.screen_width = w;
+    settings.screen_height = h;
 }
 
-void IchabodConverter::setFormat( const QString& fmt )
+void Converter::setFormat( const QString& fmt )
 {
-    m_settings.fmt = fmt;
+    settings.fmt = fmt;
 }
 
-void IchabodConverter::setLooping( bool l )
+void Converter::setLooping( bool l )
 {
-    m_settings.looping = l;
+    settings.looping = l;
 }
 
-void IchabodConverter::setQuantizeMethod( const QString& method )
+void Converter::setQuantizeMethod( const QString& method )
 {
     if ( method == "DIFFUSE" )
     {
-        m_settings.quantize_method = QuantizeMethod_DIFFUSE;
+        settings.quantize_method = QuantizeMethod_DIFFUSE;
     }
     if ( method == "THRESHOLD" )
     {
-        m_settings.quantize_method = QuantizeMethod_THRESHOLD;
+        settings.quantize_method = QuantizeMethod_THRESHOLD;
     }
     if ( method == "ORDERED" )
     {
-        m_settings.quantize_method = QuantizeMethod_ORDERED;
+        settings.quantize_method = QuantizeMethod_ORDERED;
     }
     if ( method == "MEDIANCUT" )
     {
-        m_settings.quantize_method = QuantizeMethod_MEDIANCUT;
+        settings.quantize_method = QuantizeMethod_MEDIANCUT;
     }
     if ( method == "MEDIANCUT_FLOYD" )
     {
-        m_settings.quantize_method = QuantizeMethod_MEDIANCUT_FLOYD;
+        settings.quantize_method = QuantizeMethod_MEDIANCUT_FLOYD;
     }
 }
 
-void IchabodConverter::slotJavascriptEnvironment(QWebPage* page)
+void Converter::slotJavascriptEnvironment(QWebPage* page)
 {
-    m_activePage = page;
+    images.clear();
+    delays.clear();
+    warningvec.clear();
+    errorvec.clear();
+
+    activePage = page;
     // install custom css, if present
-    if ( m_settings.css.length() )
+    if ( settings.css.length() )
     {
-        QByteArray ba = m_settings.css.toUtf8().toBase64();
+        QByteArray ba = settings.css.toUtf8().toBase64();
         QString data("data:text/css;charset=utf-8;base64,");
         QUrl css_data_url(data + QString(ba.data()));
-        m_activePage->settings()->setUserStyleSheetUrl(css_data_url);
+        activePage->settings()->setUserStyleSheetUrl(css_data_url);
     }
     // register the current environment
-    if ( m_settings.verbosity > 2 )
-    {
-        std::cout << "js rasterizer: " << m_settings.rasterizer << std::endl;
-    }
-    m_activePage->mainFrame()->addToJavaScriptWindowObject(m_settings.rasterizer, 
-                                                           this);
+    activePage->mainFrame()->addToJavaScriptWindowObject(settings.rasterizer, this);
 }
 
-void IchabodConverter::slotJavascriptWarning(QString s )
+void Converter::slotJavascriptWarning(QString s )
 {
-    m_warnings.push_back( s );
+    warningvec.push_back( s );
 }
 
 
-void IchabodConverter::slotJavascriptError(QString s )
+void Converter::slotJavascriptError(QString s )
 {
-    m_errors.push_back( s );
+    errorvec.push_back( s );
 }
 
-void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay )
+void Converter::snapshotElements( const QStringList& ids, int msec_delay )
 {
-    if ( !m_crops.size() )
+    if ( !crops.size() )
     {
         snapshotPage( msec_delay );
         return;
     }
-    QWebFrame* frame = m_activePage->mainFrame();
+    QWebFrame* frame = activePage->mainFrame();
     // calculate largest rect encompassing all elements
     QRect crop_rect;
     for( QStringList::const_iterator it = ids.begin();
@@ -150,21 +148,21 @@ void IchabodConverter::snapshotElements( const QStringList& ids, int msec_delay 
 }
 
 
-void IchabodConverter::snapshotPage(int msec_delay)
+void Converter::snapshotPage(int msec_delay)
 {
     QRect invalid;
     internalSnapshot( msec_delay, invalid );
 }
 
-void IchabodConverter::internalSnapshot( int msec_delay, const QRect& crop )
+void Converter::internalSnapshot( int msec_delay, const QRect& crop )
 {
-    QWebFrame* frame = m_activePage->mainFrame();
+    QWebFrame* frame = activePage->mainFrame();
     frame->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
 
     // Calculate a good width for the image
-    int highWidth=m_settings.screenWidth;
-    m_activePage->setViewportSize(QSize(highWidth, 10));
-    if (m_settings.smartWidth && frame->scrollBarMaximum(Qt::Horizontal) > 0) 
+    int highWidth=settings.screen_width;
+    activePage->setViewportSize(QSize(highWidth, 10));
+    if (settings.smart_width && frame->scrollBarMaximum(Qt::Horizontal) > 0) 
     {
         if (highWidth < 10)
         {
@@ -175,12 +173,12 @@ void IchabodConverter::internalSnapshot( int msec_delay, const QRect& crop )
         {
             lowWidth = highWidth;
             highWidth *= 2;
-            m_activePage->setViewportSize(QSize(highWidth, 10));
+            activePage->setViewportSize(QSize(highWidth, 10));
         }
         while (highWidth - lowWidth > 10) 
         {
             int t = lowWidth + (highWidth - lowWidth)/2;
-            m_activePage->setViewportSize(QSize(t, 10));
+            activePage->setViewportSize(QSize(t, 10));
             if (frame->scrollBarMaximum(Qt::Horizontal) > 0)
             {
                 lowWidth = t;
@@ -190,18 +188,18 @@ void IchabodConverter::internalSnapshot( int msec_delay, const QRect& crop )
                 highWidth = t;
             }
         }
-        m_activePage->setViewportSize(QSize(highWidth, 10));
+        activePage->setViewportSize(QSize(highWidth, 10));
     }
-    m_activePage->mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
+    activePage->mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
     //Set the right height
-    if (m_settings.screenHeight > 0)
+    if (settings.screen_height > 0)
     {
-        m_activePage->setViewportSize(QSize(highWidth, m_settings.screenHeight));
+        activePage->setViewportSize(QSize(highWidth, settings.screen_height));
     }
     else
     {
         int content_height = frame->contentsSize().height();
-        if ( content_height <= m_activePage->viewportSize().height() )
+        if ( content_height <= activePage->viewportSize().height() )
         {
             // Sanity check for those sites which deliberately mess
             // with body.scrollHeight. Check all top-level elements
@@ -220,13 +218,13 @@ void IchabodConverter::internalSnapshot( int msec_delay, const QRect& crop )
                 content_height = mh;
             }
         }
-        m_activePage->setViewportSize(QSize(highWidth, content_height));
+        activePage->setViewportSize(QSize(highWidth, content_height));
     }
 
     QPainter painter;
     QImage image;
 
-    QRect rect = QRect(QPoint(0,0), m_activePage->viewportSize());
+    QRect rect = QRect(QPoint(0,0), activePage->viewportSize());
     if (rect.width() == 0 || rect.height() == 0) 
     {
         //?
@@ -235,62 +233,62 @@ void IchabodConverter::internalSnapshot( int msec_delay, const QRect& crop )
     image = QImage(rect.size(), QImage::Format_ARGB32_Premultiplied); // draw as fast as possible
     painter.begin(&image);
 
-    if (m_settings.transparent) 
+    if (settings.transparent) 
     {
         QWebElement e = frame->findFirstElement("body");
         e.setStyleProperty("background-color", "transparent");
         e.setStyleProperty("background-image", "none");
-        QPalette pal = m_activePage->palette();
+        QPalette pal = activePage->palette();
         pal.setColor(QPalette::Base, QColor(Qt::transparent));
-        m_activePage->setPalette(pal);
+        activePage->setPalette(pal);
         painter.setCompositionMode(QPainter::CompositionMode_Clear);
-        painter.fillRect(QRect(QPoint(0,0),m_activePage->viewportSize()), QColor(0,0,0,0));
+        painter.fillRect(QRect(QPoint(0,0),activePage->viewportSize()), QColor(0,0,0,0));
         painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
     } 
     else 
     {
-        painter.fillRect(QRect(QPoint(0,0),m_activePage->viewportSize()), Qt::white);
+        painter.fillRect(QRect(QPoint(0,0),activePage->viewportSize()), Qt::white);
     }
     
     painter.translate(-rect.left(), -rect.top());
     frame->render(&painter);
     painter.end();
     
-    m_images.push_back(image);
-    m_delays.push_back(msec_delay);
-    m_crops.push_back( crop );
+    images.push_back(image);
+    delays.push_back(msec_delay);
+    crops.push_back( crop );
 }
 
-void IchabodConverter::saveToOutput()
+void Converter::saveToOutput()
 {
-    if ( !m_images.size() )
+    if ( !images.size() )
     {
-        //std::cerr << "WARNING: saveToOutput forcing snapshotPage" << std::endl;
+        std::cerr << "WARNING: saveToOutput forcing snapshotPage" << std::endl;
         snapshotPage();
     }
-    if ( m_settings.verbosity > 1 )
+    if ( settings.convert_verbosity )
     {
-        std::cout << "       images: " << m_images.size() << std::endl;
+        std::cout << "convert: images: " << images.size() << std::endl;
     }
-    if ( m_settings.fmt == "gif" )
+    if ( settings.fmt == "gif" )
     {
-        gifWrite( m_settings.quantize_method, m_images, m_delays, m_crops, m_settings.out, m_settings.looping );
+        gifWrite( settings.quantize_method, images, delays, crops, settings.out, settings.looping );
     }
     else
     {
-        QImage img = m_images.last();
+        QImage img = images.last();
         // selector, optionally creates initial crop
-        if ( m_settings.selector.length() )
+        if ( settings.selector.length() )
         {
-            QWebFrame* frame = m_activePage->mainFrame();
-            QWebElement el = frame->findFirstElement( m_settings.selector );
+            QWebFrame* frame = activePage->mainFrame();
+            QWebElement el = frame->findFirstElement( settings.selector );
             QMap<QString,QVariant> crop = el.evaluateJavaScript( QString("this.getBoundingClientRect()") ).toMap();
             QRect r = QRect( crop["left"].toInt(), crop["top"].toInt(),
                              crop["width"].toInt(), crop["height"].toInt() );
-            if ( m_settings.verbosity > 1 )
+            if ( settings.convert_verbosity )
             {
-                std::cout << "     selector: " << m_settings.selector << std::endl;
-                std::cout << "selector rect: " << crop["left"].toInt() << "," << crop["top"].toInt() 
+                std::cout << "convert: selector: " << settings.selector << std::endl;
+                std::cout << "convert: selector rect: " << crop["left"].toInt() << "," << crop["top"].toInt() 
                           << " " <<crop["width"].toInt() << "x" <<crop["height"].toInt() << " valid:" << r.isValid() << std::endl;
             }
             if (r.isValid())
@@ -302,69 +300,70 @@ void IchabodConverter::saveToOutput()
                 img = QImage();
             }
         }
-        if ( m_settings.verbosity > 1 )
+        if ( settings.convert_verbosity )
         {
-            std::cout << "    crop rect: " << m_settings.crop_rect.x() << "," << m_settings.crop_rect.y() 
-                      << " " << m_settings.crop_rect.width() << "x" << m_settings.crop_rect.height() << std::endl;
+            std::cout << "convert: crop rect: " << settings.crop_rect.x() << "," << settings.crop_rect.y() 
+                      << " " << settings.crop_rect.width() << "x" << settings.crop_rect.height() << std::endl;
         }
         // actual cropping, relative to whatever img is now
-        if ( m_settings.crop_rect.isValid() )
+        if ( settings.crop_rect.isValid() )
         {
-            img = img.copy(m_settings.crop_rect);
+            img = img.copy(settings.crop_rect);
         }
         QFile file;
-        file.setFileName(m_settings.out);
+        file.setFileName(settings.out);
         bool openOk = file.open(QIODevice::WriteOnly);
         if (!openOk) {
-            QString err = QString("Failure to open output file: %1").arg(m_settings.out);
-            m_errors.push_back(err);
+            QString err = QString("Failure to open output file: %1").arg(settings.out);
+            errorvec.push_back(err);
             std::cerr << err.toLocal8Bit().constData() << std::endl;            
         }
-        if ( !img.save(&file,m_settings.fmt.toLocal8Bit().constData(), m_settings.quality) )
+        if ( !img.save(&file,settings.fmt.toLocal8Bit().constData(), settings.quality) )
         {
-            QString err = QString("Failure to save output file: %1 as %2 img: %3x%4").arg(m_settings.out).arg(m_settings.fmt).arg(img.width()).arg(img.height());
-            m_errors.push_back(err);
+            QString err = QString("Failure to save output file: %1 as %2 img: %3x%4").arg(settings.out).arg(settings.fmt).arg(img.width()).arg(img.height());
+            errorvec.push_back(err);
             std::cerr << err.toLatin1().constData() << std::endl;
         }
     }
+    emit done(errorvec.size());
 }
 
-void IchabodConverter::debugSettings(int verbosity, bool success_status)
+void Converter::debugSettings(int verbosity, bool success_status)
 {
     if ( verbosity )
     {
         std::cout << "      success: " << success_status << std::endl;
         if ( verbosity > 1 )
         {
-            std::cout << "           in: " << m_settings.in << std::endl;
-            std::cout << "          out: " << m_settings.out << std::endl;
-            std::cout << "      quality: " << m_settings.quality << std::endl;
-            std::cout << "     quantize: " << m_settings.quantize_method << std::endl;
-            std::cout << "          fmt: " << m_settings.fmt << std::endl;
-            std::cout << "  transparent: " << m_settings.transparent << std::endl;
-            std::cout << "  smart width: " << m_settings.smartWidth << std::endl;
-            std::cout << "       screen: " << m_settings.screenWidth << "x" << m_settings.screenHeight << std::endl;
-            if ( m_settings.crop_rect.isValid() )
+            std::cout << "           in: " << settings.in << std::endl;
+            std::cout << "          out: " << settings.out << std::endl;
+            std::cout << "      quality: " << settings.quality << std::endl;
+            std::cout << "     quantize: " << settings.quantize_method << std::endl;
+            std::cout << "          fmt: " << settings.fmt << std::endl;
+            std::cout << "  transparent: " << settings.transparent << std::endl;
+            std::cout << "  smart width: " << settings.smart_width << std::endl;
+            std::cout << "       screen: " << settings.screen_width << "x" << settings.screen_height << std::endl;
+            if ( settings.crop_rect.isValid() )
             {
-                std::cout << "         crop: " << m_settings.crop_rect.x() << "," << m_settings.crop_rect.y()
-                          << " " << m_settings.crop_rect.width() << "x" << m_settings.crop_rect.height() << std::endl;
+                std::cout << "         crop: " << settings.crop_rect.x() << "," << settings.crop_rect.y()
+                          << " " << settings.crop_rect.width() << "x" << settings.crop_rect.height() << std::endl;
             }
         }
         if ( verbosity > 2 )
         {
-            QFileInfo fi(m_settings.out);
+            QFileInfo fi(settings.out);
             std::cout << "        bytes: " << fi.size() << std::endl;
-            QImage img(m_settings.out, m_settings.fmt.toLocal8Bit().constData());
+            QImage img(settings.out, settings.fmt.toLocal8Bit().constData());
             std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
-            std::cout << "script result: " << scriptResult() << std::endl;
-            for( QVector<QString>::iterator it = m_warnings.begin();
-                 it != m_warnings.end();
+            //std::cout << "script result: " << scriptResult() << std::endl;
+            for( QVector<QString>::iterator it = warningvec.begin();
+                 it != warningvec.end();
                  ++it )
             {
                 std::cout << "       warning: " << *it << std::endl;
             }
-            for( QVector<QString>::iterator it = m_errors.begin();
-                 it != m_errors.end();
+            for( QVector<QString>::iterator it = errorvec.begin();
+                 it != errorvec.end();
                  ++it )
             {
                 std::cout << "         error: " << *it << std::endl;
@@ -372,75 +371,49 @@ void IchabodConverter::debugSettings(int verbosity, bool success_status)
         }
         if ( verbosity > 3 )
         {
-            QFile fil_read(m_settings.in);
+            QFile fil_read(settings.in);
             fil_read.open(QIODevice::ReadOnly);
             QByteArray arr = fil_read.readAll();
             std::cout << "         html: " << QString(arr) << std::endl;
-            for( QList<QString>::const_iterator it = m_settings.loadPage.runScript.begin();
-                 it != m_settings.loadPage.runScript.end();
+            for( QList<QString>::const_iterator it = settings.run_scripts.begin();
+                 it != settings.run_scripts.end();
                  ++it )
             {
                 std::cout << "           js: " << *it << std::endl;
             }
-            std::cout << "     selector: " << m_settings.selector << std::endl;
-            std::cout << "          css: " << m_settings.css << std::endl;
+            std::cout << "     selector: " << settings.selector << std::endl;
+            std::cout << "          css: " << settings.css << std::endl;
         }
     }
 }
 
-#define NANOS 1000000000LL
-#define USED_CLOCK CLOCK_MONOTONIC
 
-bool IchabodConverter::convert(QString& result, QVector<QString>& warnings, QVector<QString>& errors, double& elapsedms)
+void Converter::setSelector( const QString& sel )
 {
-    m_images.clear();
-    m_delays.clear();
-    m_warnings.clear();
-    m_errors.clear();
-    wkhtmltopdf::ProgressFeedback feedback(true, *this);
-
-    if ( m_settings.verbosity > 4 )
-    {
-        debugSettings(m_settings.verbosity, 0);
-    }
-
-    timespec time1, time2;
-    clock_gettime(USED_CLOCK, &time1);
-    long long start = time1.tv_sec*NANOS + time1.tv_nsec;
-
-    bool success = wkhtmltopdf::ImageConverter::convert();  
-
-    clock_gettime(USED_CLOCK, &time2);
-    long long diff = time2.tv_sec*NANOS + time2.tv_nsec - start;
-    elapsedms = (diff / 1000 + (diff % 1000 >= 500) /*round up halves*/) / 1000.0; 
-
-    if ( m_settings.statsd )
-    {
-        m_settings.statsd->timing("convert", elapsedms);
-    }
-    debugSettings(elapsedms > m_settings.slow_response_ms ? 4 : m_settings.verbosity, success);
-    result = scriptResult();
-    warnings = m_warnings;
-    errors = m_errors;
-    return !m_errors.size();
+    settings.selector = sel;
 }
 
-void IchabodConverter::setSelector( const QString& sel )
+void Converter::setCss( const QString& css )
 {
-    m_settings.selector = sel;
+    settings.css = css;
 }
 
-void IchabodConverter::setCss( const QString& css )
+void Converter::setCropRect( int x, int y, int w, int h )
 {
-    m_settings.css = css;
+    settings.crop_rect = QRect(x,y,w,h);
 }
 
-void IchabodConverter::setCropRect( int x, int y, int w, int h )
+void Converter::setSmartWidth( bool sw )
 {
-    m_settings.crop_rect = QRect(x,y,w,h);
+    settings.smart_width = sw;
 }
 
-void IchabodConverter::setSmartWidth( bool sw )
+QVector<QString> Converter::warnings() const
 {
-    m_settings.smartWidth = sw;
+    return warningvec;
+}
+
+QVector<QString> Converter::errors() const
+{
+    return errorvec;
 }

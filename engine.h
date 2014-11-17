@@ -1,4 +1,7 @@
+#ifndef ENGINE_H
+#define ENGINE_H
 #include <QObject>
+#include <QVector>
 #include <QString>
 #include <QRect>
 #include <QSet>
@@ -7,6 +10,7 @@
 #include <QNetworkAccessManager>
 #include <QEventLoop>
 #include "statsd_client.h"
+#include "quant.h"
 #include <string>
 
 class Settings
@@ -23,14 +27,15 @@ public:
     int virtual_width;
     int screen_height;
     bool transparent;
-    QString quantize_method;
     bool smart_width;
     int load_timeout_msec;
     QList<QString> run_scripts;
+    int engine_verbosity;
+    int convert_verbosity;
     int verbosity;
     QString rasterizer;
     bool looping;
-    //QuantizeMethod quantize_method;
+    QuantizeMethod quantize_method;
     QRect crop_rect;
     QString css;
     QString selector;
@@ -80,8 +85,12 @@ class Engine : public QObject
     Q_OBJECT
 public:
     Engine( const Settings & settings );
-    virtual ~Engine();
-    QString scriptResult() const;
+    ~Engine();
+    bool run();                   // do this
+    QString scriptResult() const; // then check this
+    double runTime() const;       // and this
+    double convertTime() const;   // and this
+
 signals:
     void warning(const QString & message);
     void error(const QString & message);
@@ -91,20 +100,27 @@ signals:
     void finished(bool ok);
 
 public slots:
-    bool convert();
-    //void cancel();
-
+    void stop(int exitcode);
+        
+private slots:
     void netSslErrors(QNetworkReply *reply, const QList<QSslError> &);
     void netFinished(QNetworkReply * reply);
     void netWarning(const QString & message);
-
     void webPageLoadStarted();
     void webPageLoadFinished(bool b);
+    void checkDone();
 
 private:
+    void loadDone();
     void setWebSettings(QWebSettings * ws);
-    WebPage web_page;
+    WebPage web_page;    
     Settings settings;
+    NetAccess net_access;
     QString script_result;
     QEventLoop event_loop;
+    int check_done_attempts;
+    int run_code;
+    double run_elapsedms;
+    double convert_elapsedms;
 };
+#endif

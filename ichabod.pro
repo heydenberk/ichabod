@@ -36,8 +36,7 @@ INCLUDEPATH += netpbm netpbm/lib
 LIBS += -Lnetpbm/lib -lnetpbm
 
 # ichabod
-#HEADERS += conv.h
-HEADERS += engine.h
-SOURCES += agif.cpp main.cpp mediancut.cpp engine.cpp
+HEADERS += conv.h engine.h
+SOURCES += agif.cpp conv.cpp main.cpp mediancut.cpp engine.cpp
 
 

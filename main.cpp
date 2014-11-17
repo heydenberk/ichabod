@@ -17,14 +17,16 @@
 #include "statsd_client.h"
 
 #include "version.h"
-//#include "conv.h"
+#include "conv.h"
 #include "quant.h"
 #include "engine.h"
 
 #define ICHABOD_NAME "ichabod"
-#define LOG_STRING "%1 %2x%3 %4 %5 %6 %7x%8+%9+%10 [%11ms]" // input WxH format output selector croprect [elapsedms]
+#define LOG_STRING "%1 %2x%3 %4 %5 %6 %7x%8+%9+%10 [%11ms] [%12ms]" // input WxH format output selector croprect [convert_elapsedms] [run_elapsedms]
 
 int g_verbosity = 0;
+int g_engine_verbosity = 0;
+int g_convert_verbosity = 0;
 int g_slow_response_ms = 15 * 1000;
 QString g_quantize = "MEDIANCUT";
 statsd::StatsdClient g_statsd;
@@ -83,21 +85,28 @@ static void send_headers(struct mg_connection* conn)
     mg_send_header(conn, "Server", QString("%1 %2").arg(ICHABOD_NAME).arg(ICHABOD_VERSION).toLocal8Bit().constData());
 }
 
-    /*
-
-static int handle_default(struct mg_connection *conn, IchabodSettings& settings)
+static int handle_default(struct mg_connection *conn, Settings& settings)
 {
     send_headers(conn);
-    if ( !settings.loadPage.runScript.size() )
+    if ( !settings.run_scripts.size() )
     {
         return send_error(conn, "Internal error: no scripts");
     }
-    IchabodConverter converter(settings);
-    QString result;
-    QVector<QString> warnings;
-    QVector<QString> errors;
-    double elapsedms;
-    bool conversion_success = converter.convert(result, warnings, errors, elapsedms);
+
+    // hook up converter to engine
+    Engine engine(settings);
+    Converter converter(&engine, settings);
+
+    bool conversion_success = engine.run();
+
+    // collect info
+    QString result = engine.scriptResult();
+    double run_elapsedms = engine.runTime();
+    double convert_elapsedms = engine.convertTime();
+    QVector<QString> warnings = converter.warnings();
+    QVector<QString> errors = converter.errors();
+
+    // create json return
     Json::Value root;
     root["path"] = settings.out.toLocal8Bit().constData();
 
@@ -111,7 +120,8 @@ static int handle_default(struct mg_connection *conn, IchabodSettings& settings)
     }
     root["result"] = result_root;
     root["conversion"] = conversion_success;
-    root["elapsed"] = elapsedms;
+    root["run_elapsed"] = run_elapsedms;
+    root["convert_elapsed"] = convert_elapsedms;
     Json::Value js_warnings;
     for( QVector<QString>::iterator it = warnings.begin();
          it != warnings.end();
@@ -137,15 +147,13 @@ static int handle_default(struct mg_connection *conn, IchabodSettings& settings)
         settings.statsd->inc(settings.statsd_ns + "request");
     }
 
-    QString xtra = QString(LOG_STRING).arg(settings.in).arg(settings.screenWidth).arg(settings.screenHeight).arg(settings.out).arg(settings.fmt)
-        .arg(settings.selector)
+    QString xtra = QString(LOG_STRING).arg(settings.in).arg(settings.screen_width).arg(settings.screen_height).arg(settings.out).arg(settings.fmt)
+        .arg(settings.selector.length()?settings.selector:"''")
         .arg(settings.crop_rect.width()).arg(settings.crop_rect.height()).arg(settings.crop_rect.x()).arg(settings.crop_rect.y())
-        .arg(elapsedms);
+        .arg(run_elapsedms).arg(convert_elapsedms);
     log( conn, xtra.toLocal8Bit().constData() );
     return MG_TRUE;
 }
-    */
-
 
 static int handle_health(struct mg_connection *conn)
 {
@@ -238,33 +246,31 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             format = "png";
         }
 
-        /*
-        IchabodSettings settings;
+        Settings settings;
         settings.verbosity = g_verbosity;
+        settings.engine_verbosity = g_engine_verbosity;
+        settings.convert_verbosity = g_convert_verbosity;
         settings.slow_response_ms = g_slow_response_ms;
-        settings.loadPage.verbosity = g_verbosity;
-        settings.loadPage.loadErrorHandling = wkhtmltopdf::settings::LoadPage::skip;
         settings.rasterizer = rasterizer;
         settings.fmt = format;
         settings.in = input;
         settings.quality = 50; // reasonable size/speed tradeoff by default
         settings.out = output;
-        settings.screenWidth = width;
-        settings.loadPage.virtualWidth = width;
-        settings.screenHeight = height;
+        settings.screen_width = width;
+        settings.virtual_width = width;
+        settings.screen_height = height;
         settings.transparent = transparent;
         settings.looping = false;
         settings.quantize_method = toQuantizeMethod( g_quantize );
-        settings.loadPage.debugJavascript = true;
-        settings.smartWidth = smart_width;
+        settings.smart_width = smart_width;
         settings.crop_rect = crop_rect;
         settings.css = css;
         settings.selector = selector;
-        settings.loadPage.selector = selector;
-        settings.loadPage.load_timeout_msec = load_timeout_msec;
+        settings.selector = selector;
+        settings.load_timeout_msec = load_timeout_msec;
         QList<QString> scripts;
         scripts.append(js);
-        settings.loadPage.runScript = scripts;
+        settings.run_scripts = scripts;
         settings.statsd = 0;
         if ( enable_statsd )
         {
@@ -272,8 +278,6 @@ static int ev_handler(struct mg_connection *conn, enum mg_event ev)
             settings.statsd = &g_statsd;
         }
         return handle_default(conn, settings);
-        */
-        return MG_FALSE;
     } 
     else if (ev == MG_AUTH) 
     {
@@ -303,10 +307,12 @@ int main(int argc, char *argv[])
     QStringList args = app.arguments();
     QRegExp rxPort("--port=([0-9]{1,})");
     QRegExp rxVerbose("--verbosity=([0-9]{1,})");
+    QRegExp rxEngineVerbose("--engine-verbosity=([0-9]{1,})");
+    QRegExp rxConvertVerbose("--convert-verbosity=([0-9]{1,})");
     QRegExp rxSlowResponseMs("--slow-response-ms=([0-9]{1,})");
     QRegExp rxQuantize("--quantize=([a-zA-Z]{1,})");
     QRegExp rxVersion("--version");
-    QRegExp rxShortVersion("-v");
+    QRegExp rxShortVersion("-v ");
     QRegExp rxStatsdHost("--statsd-host=([^ ]+)");
     QRegExp rxStatsdPort("--statsd-port=([0-9]{1,})");
     QRegExp rxStatsdNs("--statsd-ns=([^ ]+)");
@@ -319,6 +325,14 @@ int main(int argc, char *argv[])
         else if (rxVerbose.indexIn(args.at(i)) != -1 ) 
         {
             g_verbosity = rxVerbose.cap(1).toInt();
+        }
+        else if (rxEngineVerbose.indexIn(args.at(i)) != -1 ) 
+        {
+            g_engine_verbosity = rxEngineVerbose.cap(1).toInt();
+        }
+        else if (rxConvertVerbose.indexIn(args.at(i)) != -1 ) 
+        {
+            g_convert_verbosity = rxConvertVerbose.cap(1).toInt();
         }
         else if (rxSlowResponseMs.indexIn(args.at(i)) != -1 ) 
         {
@@ -377,16 +391,7 @@ int main(int argc, char *argv[])
     }
 
     ppm_init( &argc, argv );
-
     
-    Settings s;
-    s.in = "/tmp/file.html";
-    Engine engine(s);
-    bool b = engine.convert();
-    return 0;
-    
-
-
     struct mg_server *server = mg_create_server(NULL, ev_handler);
 
     const char * err = mg_set_option(server, "listening_port", QString::number(port).toLocal8Bit().constData());
@@ -398,6 +403,8 @@ int main(int argc, char *argv[])
     std::cout << ICHABOD_NAME << " " << ICHABOD_VERSION 
               << " (port:" << mg_get_option(server, "listening_port") 
               << " verbosity:" << g_verbosity 
+              << " engine verbosity:" << g_engine_verbosity 
+              << " convert verbosity:" << g_convert_verbosity 
               << " slow-response:" << g_slow_response_ms << "ms";
     if ( statsd.enabled )
     {

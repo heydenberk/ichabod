@@ -3,19 +3,17 @@
 VERBOSITY=0
 PORT=19090
 
-./ichabod --verbosity=$VERBOSITY --port=$PORT &
-ichabod_pid=$!
-sleep 1
 
 HELLO_FILE=hello.png
 ANIM_FILE=hello.gif
+ichabod_pid=-1
 
 function cleanup()
 {
     rm -f $HELLO_FILE
     rm -f $ANIM_FILE
     while sleep 1
-          echo Killing ichabod on port $PORT
+          echo Killing ichabod pid $ichabod_pid on port $PORT
           kill -0 $ichabod_pid >/dev/null 2>&1
     do
         kill $ichabod_pid > /dev/null 2>&1
@@ -24,121 +22,41 @@ function cleanup()
 
 function die()
 {
-    echo "--------------------------"
-    echo "ERROR: $1"
-    echo "--------------------------"
+    echo -e "\e[31mERROR: $1\e[0m"
     cleanup
     exit 666    
 }
 
-function test001()
-{
-    echo "Testing v0.0.1 api"
+set -e
+function error_handler() {
+    die "Error trapped during testing!"
+}
+ 
+trap error_handler EXIT
 
+./ichabod --verbosity=$VERBOSITY --port=$PORT &
+ichabod_pid=$!
+sleep 1
+
+
+function test_simple()
+{
     # simple image
-    HELLO=$(curl -s -X POST http://localhost:$PORT/rasterize --data "html=<html><head></head><body style='background-color: red;'><div style='background-color: blue; color: white;'>helloworld</div></body></html>&width=100&height=100&format=png&output=$HELLO_FILE")
-    HELLO_EXPECTED='{"path": "'$HELLO_FILE'", "result": ""}'
-    if [ "$HELLO" != "$HELLO_EXPECTED" ]; then
-        die "Invalid hello world result: [$HELLO] expected: [$HELLO_EXPECTED]"
-    fi
-    if [ ! -s $HELLO_FILE ]; then
-        die "Hello world result file missing: [$HELLO_FILE]"
-    fi
+    HELLO=$(curl -s -X POST http://localhost:$PORT --data "html=<html><head></head><body style='background-color: red;'><div style='background-color: blue; color: white;'>helloworld</div></body></html>&width=100&height=100&format=png&js=(function(){ichabod.snapshotPage();ichabod.saveToOutput();})();&output=$HELLO_FILE")
+    test `echo $HELLO | jq '.conversion'` == "true"  || die "Conversion failed: $HELLO"
+    ls $HELLO_FILE > /dev/null || die "Hello world result file missing: [$HELLO_FILE]"
 
     # animated image
-    ANIM=$(curl -s -X POST http://localhost:$PORT/evaluate --data "html=<html><head></head><body style='background-color: red;'><div id='word' style='background-color: blue; color: darkgrey;'>hello</div></body></html>&width=100&height=100&format=gif&output=$ANIM_FILE&js=(function(){ichabod.setTransparent(0); ichabod.snapshotPage(); document.getElementById('word').innerHTML='world'; ichabod.snapshotPage(); ichabod.saveToOutput(); return 42;})();")
-    ANIM_EXPECTED='{"path": "'$ANIM_FILE'", "result": "42"}'
-    if [ "$ANIM" != "$ANIM_EXPECTED" ]; then
-        die "Invalid animated result: [$ANIM] expected: [$ANIM_EXPECTED]"
-    fi
-    if [ ! -s $ANIM_FILE ]; then
-        die "Animated result file missing: [$ANIM_FILE]"
-    fi
+    ANIM=$(curl -s -X POST http://localhost:$PORT --data "html=<html><head></head><body style='background-color: red;'><div id='word' style='background-color: blue; color: darkgrey;'>hello</div></body></html>&width=100&height=100&format=gif&output=$ANIM_FILE&js=(function(){ichabod.setTransparent(0); ichabod.snapshotPage(); document.getElementById('word').innerHTML='world'; ichabod.snapshotPage(); ichabod.saveToOutput(); return 42;})();")
+    test `echo $ANIM | jq '.conversion'` == "true"  || die "Conversion failed: $ANIM"
+    test `echo $ANIM | jq '.result'` == "42"  || die "Invalid result: $ANIM"
+    ls $ANIM_FILE > /dev/null || die "Animated result file missing: [$ANIM_FILE]"
+    return 0
 }
 
-function test002()
+function test_wait()
 {
-
-    echo "Testing v0.0.2 api"
-
-    # simple image
-    HELLO=$(curl -s -X POST http://localhost:$PORT/002 --data "html=<html><head></head><body style='background-color: red;'><div style='background-color: blue; color: white;'>helloworld</div></body></html>&width=100&height=100&format=png&output=$HELLO_FILE")
-    HELLO_EXPECTED='{"path": "'$HELLO_FILE'", "result": }'
-    if [ "$HELLO" != "$HELLO_EXPECTED" ]; then
-        die "Invalid hello world result: [$HELLO] expected: [$HELLO_EXPECTED]"
-    fi
-    if [ ! -s $HELLO_FILE ]; then
-        die "Hello world result file missing: [$HELLO_FILE]"
-    fi
-
-    # animated image
-    ANIM=$(curl -s -X POST http://localhost:$PORT/002 --data "html=<html><head></head><body style='background-color: red;'><div id='word' style='background-color: blue; color: darkgrey;'>hello</div></body></html>&width=100&height=100&format=gif&output=$ANIM_FILE&js=(function(){ichabod.setTransparent(0); ichabod.snapshotPage(); document.getElementById('word').innerHTML='world'; ichabod.snapshotPage(); ichabod.saveToOutput(); return 42;})();")
-    ANIM_EXPECTED='{"path": "'$ANIM_FILE'", "result": 42}'
-    if [ "$ANIM" != "$ANIM_EXPECTED" ]; then
-        die "Invalid animated result: [$ANIM] expected: [$ANIM_EXPECTED]"
-    fi
-    if [ ! -s $ANIM_FILE ]; then
-        die "Animated result file missing: [$ANIM_FILE]"
-    fi
-}
-
-function test003()
-{
-
-    echo "Testing v0.0.3 api"
-
-    # simple image
-    HELLO=$(curl -s -X POST http://localhost:$PORT/003 --data "html=<html><head></head><body style='background-color: red;'><div style='background-color: blue; color: white;'>helloworld</div></body></html>&width=100&height=100&format=png&output=$HELLO_FILE")
-    HELLO_EXPECTED='{"path": "'$HELLO_FILE'", "result": , "warnings": []}'
-    if [ "$HELLO" != "$HELLO_EXPECTED" ]; then
-        die "Invalid hello world result: [$HELLO] expected: [$HELLO_EXPECTED]"
-    fi
-    if [ ! -s $HELLO_FILE ]; then
-        die "Hello world result file missing: [$HELLO_FILE]"
-    fi
-
-    # animated image
-    ANIM=$(curl -s -X POST http://localhost:$PORT/003 --data "html=<html><head></head><body style='background-color: red;'><div id='word' style='background-color: blue; color: darkgrey;'>hello</div></body></html>&width=100&height=100&format=gif&output=$ANIM_FILE&js=(function(){ichabod.setTransparent(0); ichabod.snapshotPage(); document.getElementById('word').innerHTML='world'; ichabod.snapshotPage(); ichabod.saveToOutput(); return 42;})();")
-    ANIM_EXPECTED='{"path": "'$ANIM_FILE'", "result": 42, "warnings": []}'
-    if [ "$ANIM" != "$ANIM_EXPECTED" ]; then
-        die "Invalid animated result: [$ANIM] expected: [$ANIM_EXPECTED]"
-    fi
-    if [ ! -s $ANIM_FILE ]; then
-        die "Animated result file missing: [$ANIM_FILE]"
-    fi
-}
-
-function test004()
-{
-
-    echo "Testing v0.0.4 api"
-
-    # simple image
-    HELLO=$(curl -s -X POST http://localhost:$PORT/003 --data "html=<html><head></head><body style='background-color: red;'><div style='background-color: blue; color: white;'>helloworld</div></body></html>&width=100&height=100&format=png&output=$HELLO_FILE")
-    if [ "true" != "$(echo $HELLO | jq .conversion)" ]; then
-        die "Failure to convert: $HELLO"
-    fi
-    if [ ! -s $HELLO_FILE ]; then
-        die "Hello world result file missing: [$HELLO_FILE]"
-    fi
-
-    # animated image
-    ANIM=$(curl -s -X POST http://localhost:$PORT/003 --data "html=<html><head></head><body style='background-color: red;'><div id='word' style='background-color: blue; color: darkgrey;'>hello</div></body></html>&width=100&height=100&format=gif&output=$ANIM_FILE&js=(function(){ichabod.setTransparent(0); ichabod.snapshotPage(); document.getElementById('word').innerHTML='world'; ichabod.snapshotPage(); ichabod.saveToOutput(); return 42;})();")
-    if [ "true" != "$(echo $ANIM | jq .conversion)" ]; then
-        die "Failure to convert: $ANIM"
-    fi
-    if [ ! -s $ANIM_FILE ]; then
-        die "Animated result file missing: [$ANIM_FILE]"
-    fi
-}
-
-function test012()
-{
-
-    echo "Testing v0.0.12 api"
-
-    # 
-    read -r -d '' MISSING_DIV <<EOF
+    MISSING_DIV=$(cat <<EOF
 <html>
     <head>
     </head>
@@ -152,20 +70,18 @@ function test012()
                 newDiv.id = 'test_4';
                 newDiv.style.cssText = 'position:absolute;width:25px;height:25px;background-color:red;top:5px;left:5px;';
                 document.body.appendChild(newDiv);
-            }, 2000);
+            }, 1000);
         </script>
     </body>
 </html>
 EOF
-    MISSING=$(curl -s -X POST http://localhost:$PORT/003 --data "html=$MISSING_DIV&width=100&height=100&format=png&output=$HELLO_FILE&selector=#test_4&js=(function(){if (typeof(mt_main) === 'function'){return mt_main();}else{ichabod.snapshotPage();ichabod.saveToOutput();return JSON.stringify([]);}})()")
-    if [ "true" != "$(echo $MISSING | jq .conversion)" ]; then
-        die "Unable to find missing div: $MISSING"
-    fi
-    if [ "null" != "$(echo $MISSING | jq .errors)" ]; then
-        die "Unexpected error finding missing div: $MISSING"
-    fi
+)
 
-    read -r -d '' NEW_DIV <<EOF
+    MISSING=$(curl -s -X POST http://localhost:$PORT --data "html=$MISSING_DIV&width=100&height=100&format=png&output=$HELLO_FILE&selector=#test_4&js=(function(){if (typeof(mt_main) === 'function'){return mt_main();}else{ichabod.snapshotPage();ichabod.saveToOutput();return JSON.stringify([]);}})()")
+    test `echo $MISSING | jq '.conversion'` == "true"  || die "Unable to convert missing div: $MISSING"
+    test `echo $MISSING | jq '.errors'` == "null"  || die "Unexpected error finding missing div: $MISSING"
+
+    NEW_DIV=$(cat <<EOF
 <html>
     <head>
     </head>
@@ -183,15 +99,12 @@ EOF
     </body>
 </html>
 EOF
-    NEW=$(curl -s -X POST http://localhost:$PORT/003 --data "html=$NEW_DIV&width=100&height=100&format=png&output=$HELLO_FILE&selector=#test_3&js=(function(){if (typeof(mt_main) === 'function'){return mt_main();}else{ichabod.snapshotPage();ichabod.saveToOutput();return JSON.stringify([]);}})()")
-    if [ "true" != "$(echo $NEW | jq .conversion)" ]; then
-        die "Unable to find new div: $NEW"
-    fi
-    if [ "null" != "$(echo $NEW | jq .errors)" ]; then
-        die "Unexpected error finding new div: $NEW"
-    fi
+)
+    NEW=$(curl -s -X POST http://localhost:$PORT --data "html=$NEW_DIV&width=100&height=100&format=png&output=$HELLO_FILE&selector=#test_3&js=(function(){if (typeof(mt_main) === 'function'){return mt_main();}else{ichabod.snapshotPage();ichabod.saveToOutput();return JSON.stringify([]);}})()")
+    test `echo $NEW | jq '.conversion'` == "true"  || die "Unable to find new div: $NEW"
+    test `echo $NEW | jq '.errors'` == "null"  || die "Unexpected error finding new div: $NEW"
 
-    read -r -d '' REALLY_MISSING_DIV <<EOF
+    REALLY_MISSING_DIV=$(cat <<EOF
 <html>
     <head>
     </head>
@@ -201,20 +114,18 @@ EOF
     </body>
 </html>
 EOF
-    REALLYMISSING=$(curl -s -X POST http://localhost:$PORT/003 --data "html=$REALLY_MISSING_DIV&width=100&height=100&format=png&output=$HELLO_FILE&selector=#test_3&js=(function(){if (typeof(mt_main) === 'function'){return mt_main();}else{ichabod.snapshotPage();ichabod.saveToOutput();return JSON.stringify([]);}})()")
-    if [ "true" == "$(echo $REALLYMISSING | jq .conversion)" ]; then
-        die "Unexpected successful conversion of missing div: $REALLYMISSING"
-    fi
-    if [ "null" == "$(echo $REALLYMISSING | jq .errors)" ]; then
-        die "Unexpected error finding missing div: $REALLYMISSING"
-    fi
-
+)
+    REALLYMISSING=$(curl -s -X POST http://localhost:$PORT --data "html=$REALLY_MISSING_DIV&width=100&height=100&format=png&output=$HELLO_FILE&selector=#test_3&js=(function(){if (typeof(mt_main) === 'function'){return mt_main();}else{ichabod.snapshotPage();ichabod.saveToOutput();return JSON.stringify([]);}})()")
+    test `echo $REALLYMISSING | jq '.conversion'` == "true"  && die "Unexpected success: $REALLYMISSING"
+    test `echo $REALLYMISSING | jq '.errors | length'` == "0"  && die "Unexpected lack of error finding missing div: $REALLYMISSING"
+    return 0
 }
 
-test001
-test002
-#test003
-test004
-test012
+test_simple
+test_wait
 cleanup
-echo "Testing successful."
+echo -e "\e[32mTesting successful.\e[0m"
+
+# all done, reset everything
+trap - EXIT
+exit 0

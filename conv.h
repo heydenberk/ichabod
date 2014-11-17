@@ -1,41 +1,26 @@
 #ifndef CONVERTER_H
 #define CONVERTER_H
 
-#include "progressfeedback.hh"
-#include <wkhtmltox/imagesettings.hh>
-#include <wkhtmltox/imageconverter.hh>
-#include <wkhtmltox/utilities.hh>
+#include <QObject>
 #include <QWebPage>
 #include <QRect>
 #include <utility>
-#include "quant.h"
 #include <iostream>
+
+#include "engine.h"
+#include "quant.h"
 #include "statsd_client.h"
 
-std::ostream& operator<<(std::ostream& str, const QString& string); // convenience
-
-struct IchabodSettings : public wkhtmltopdf::settings::ImageGlobal 
-{
-    int verbosity;
-    QString rasterizer;
-    bool looping;
-    QuantizeMethod quantize_method;
-    QRect crop_rect;
-    QString css;
-    QString selector;
-    int slow_response_ms;
-    std::string statsd_ns; // interop with statsd code
-    statsd::StatsdClient* statsd;
-};
-
-class IchabodConverter: public wkhtmltopdf::ImageConverter 
+class Converter : public QObject
 {
     Q_OBJECT
 public:
-    IchabodConverter(IchabodSettings & settings, const QString * data=0);
-    ~IchabodConverter();
+    Converter(const Engine* engine, const Settings & settings);
+    ~Converter();
+                
+    QVector<QString> warnings() const;
+    QVector<QString> errors() const;
 
-    bool convert(QString& result, QVector<QString>& warnings, QVector<QString>& errors, double& elapsed);
 public slots:
     void setTransparent( bool t );
     void setQuality( int q );
@@ -55,15 +40,19 @@ private slots:
     void slotJavascriptEnvironment(QWebPage* page);
     void slotJavascriptWarning(QString s);
     void slotJavascriptError(QString s);
+
+signals:
+    void done(int exitcode);
+
 private:
     void debugSettings(int verbosity, bool success_status);
-    IchabodSettings m_settings;
-    QWebPage* m_activePage;
-    QVector<QImage> m_images;
-    QVector<int> m_delays;
-    QVector<QRect> m_crops;
-    QVector<QString> m_warnings;
-    QVector<QString> m_errors;
+    Settings settings;
+    QWebPage* activePage;
+    QVector<QImage> images;
+    QVector<int> delays;
+    QVector<QRect> crops;
+    QVector<QString> warningvec;
+    QVector<QString> errorvec;
     void internalSnapshot( int msec_delay, const QRect& crop );
 };
 
