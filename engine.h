@@ -109,13 +109,14 @@ private slots:
     void webPageLoadStarted();
     void webPageLoadFinished(bool b);
     void checkDone();
+    void loadTimeout();
 
 private:
     void loadDone();
     void setWebSettings(QWebSettings * ws);
-    WebPage web_page;    
+    WebPage* web_page;    
     Settings settings;
-    NetAccess net_access;
+    NetAccess* net_access;
     QString script_result;
     QEventLoop event_loop;
     int check_done_attempts;

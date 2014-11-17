@@ -312,7 +312,7 @@ int main(int argc, char *argv[])
     QRegExp rxSlowResponseMs("--slow-response-ms=([0-9]{1,})");
     QRegExp rxQuantize("--quantize=([a-zA-Z]{1,})");
     QRegExp rxVersion("--version");
-    QRegExp rxShortVersion("-v ");
+    QRegExp rxShortVersion("-v$");
     QRegExp rxStatsdHost("--statsd-host=([^ ]+)");
     QRegExp rxStatsdPort("--statsd-port=([0-9]{1,})");
     QRegExp rxStatsdNs("--statsd-ns=([^ ]+)");

@@ -130,9 +130,9 @@ bool WebPage::extension(Extension extension, const ExtensionOption *option, Exte
 //////
 
 Engine::Engine(const Settings& s)
-    : web_page(),
+    : web_page(0),
       settings(s),
-      net_access(s),
+      net_access(0),
       script_result(""),
       check_done_attempts(0),
       run_code(0),
@@ -143,26 +143,31 @@ Engine::Engine(const Settings& s)
     // forward all interesting activity as signals for the converter
     // to pick up on
 
-    net_access.setCookieJar(new QNetworkCookieJar());
-    connect(&net_access, SIGNAL(sslErrors(QNetworkReply*, const QList<QSslError>&)),
+    web_page = new WebPage();
+    net_access = new NetAccess(s);
+
+    net_access->setCookieJar(new QNetworkCookieJar());
+    connect(net_access, SIGNAL(sslErrors(QNetworkReply*, const QList<QSslError>&)),
             this, SLOT(netSslErrors(QNetworkReply*, const QList<QSslError>&)));
-    connect(&net_access, SIGNAL(finished (QNetworkReply *)),
+    connect(net_access, SIGNAL(finished (QNetworkReply *)),
             this, SLOT(netFinished (QNetworkReply *) ) );
-    connect(&net_access, SIGNAL(warning(const QString &)),
+    connect(net_access, SIGNAL(warning(const QString &)),
             this, SLOT(netWarning(const QString &)));
 
-    web_page.setNetworkAccessManager(&net_access);
+    web_page->setNetworkAccessManager(net_access);
 
-    connect(&web_page, SIGNAL(loadStarted()), this, SLOT(webPageLoadStarted()));
-    connect(web_page.mainFrame(), SIGNAL(loadFinished(bool)), this, SLOT(webPageLoadFinished(bool)));
-    connect(&web_page, SIGNAL(alert(const QString&)), SIGNAL(warning(const QString&)));
-    connect(&web_page, SIGNAL(confirm(const QString&)), SIGNAL(warning(const QString&)));
-    connect(&web_page, SIGNAL(prompt(const QString&)), SIGNAL(warning(const QString&)));
-    connect(&web_page, SIGNAL(console(const QString&)), SIGNAL(warning(const QString&)));
+    connect(web_page, SIGNAL(loadStarted()), this, SLOT(webPageLoadStarted()));
+    connect(web_page->mainFrame(), SIGNAL(loadFinished(bool)), this, SLOT(webPageLoadFinished(bool)));
+    connect(web_page, SIGNAL(alert(const QString&)), SIGNAL(warning(const QString&)));
+    connect(web_page, SIGNAL(confirm(const QString&)), SIGNAL(warning(const QString&)));
+    connect(web_page, SIGNAL(prompt(const QString&)), SIGNAL(warning(const QString&)));
+    connect(web_page, SIGNAL(console(const QString&)), SIGNAL(warning(const QString&)));
 }
 
 Engine::~Engine()
 {
+    delete web_page;
+    delete net_access;
 }
 
 void Engine::netSslErrors(QNetworkReply *reply, const QList<QSslError> &) {
@@ -218,7 +223,7 @@ void Engine::loadDone()
     }
 
     // let listeners get ready
-    emit javascriptEnvironment(&web_page);
+    emit javascriptEnvironment(web_page);
     
     timespec time1, time2;
     clock_gettime(USED_CLOCK, &time1);
@@ -231,7 +236,7 @@ void Engine::loadDone()
         {
             std::cout << "engine: loadDone running: " << str.toLatin1().constData() << std::endl;
         }
-        script_result = web_page.mainFrame()->evaluateJavaScript(str).toString();
+        script_result = web_page->mainFrame()->evaluateJavaScript(str).toString();
     }
 
     clock_gettime(USED_CLOCK, &time2);
@@ -265,8 +270,8 @@ void Engine::checkDone()
         }
 
         // make sure element exists
-        web_page.setViewportSize(QSize(settings.virtual_width, 10));
-        QWebFrame* frame = web_page.mainFrame();
+        web_page->setViewportSize(QSize(settings.virtual_width, 10));
+        QWebFrame* frame = web_page->mainFrame();
         QWebElement el = frame->findFirstElement( settings.selector );
         if ( el.isNull() )
         {
@@ -287,7 +292,7 @@ void Engine::checkDone()
             QMap<QString,QVariant> crop = el.evaluateJavaScript( QString("this.getBoundingClientRect()") ).toMap();
             QRect r = QRect( crop["left"].toInt(), crop["top"].toInt(),
                              crop["width"].toInt(), crop["height"].toInt() );       
-            QSize s = web_page.viewportSize();
+            QSize s = web_page->viewportSize();
             if ( settings.engine_verbosity )
             {
                 std::cout << "engine: checkDone: el.isNull:" << el.isNull() << " selector:" << settings.selector.toLatin1().constData() << " rect:" << crop["left"].toInt() << "," << crop["top"].toInt() << "," <<crop["width"].toInt() << "," <<crop["height"].toInt() << "," << std::endl;
@@ -330,19 +335,33 @@ double Engine::convertTime() const
     return convert_elapsedms;
 }
 
+void Engine::loadTimeout()
+{
+    emit error(QString("Incomplete load: %1").arg(settings.in));
+    stop(-2);
+}
+
 bool Engine::run()
 {
+    if ( settings.load_timeout_msec )
+    {
+        QTimer::singleShot(settings.load_timeout_msec, this, SLOT(loadTimeout()));
+    }
     timespec time1, time2;
     clock_gettime(USED_CLOCK, &time1);
     long long start = time1.tv_sec*NANOS + time1.tv_nsec;
 
-    QFileInfo info(settings.in);
-    QUrl url = QUrl::fromLocalFile(info.absoluteFilePath());
+    QUrl url = QUrl::fromUserInput(settings.in);
+    if ( !url.isValid() )
+    {
+        stop(-3);
+        return false;
+    }
     QNetworkRequest r = QNetworkRequest(url);
 
-    web_page.mainFrame()->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
-    web_page.mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
-    web_page.mainFrame()->load(r);
+    web_page->mainFrame()->setScrollBarPolicy(Qt::Vertical, Qt::ScrollBarAlwaysOff);
+    web_page->mainFrame()->setScrollBarPolicy(Qt::Horizontal, Qt::ScrollBarAlwaysOff);
+    web_page->mainFrame()->load(r);
 
     if ( settings.engine_verbosity )
     {
