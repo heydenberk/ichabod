@@ -11,6 +11,7 @@ function subm() {
     #git submodule add https://github.com/jacobsa/jsoncpp.git
     #git submodule add https://github.com/moseymosey/qt.git
 
+    git submodule init
     git submodule update
 
 }
