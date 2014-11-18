@@ -90,13 +90,19 @@ void debug_settings(const Settings& settings, const QString& script_result,
                     const QVector<QString>& warnings, const QVector<QString>& errors, 
                     bool success_status, double run_elapsedms, double convert_elapsedms)
 {
-    if ( settings.verbosity )
+    int verbosity = settings.verbosity;
+    if ( run_elapsedms > settings.slow_response_ms )
+    {
+        verbosity = 9999;
+    }
+    if ( verbosity )
     {
         std::cout << "      success: " << success_status << std::endl;
         std::cout << "           in: " << settings.in.toLocal8Bit().constData() << std::endl;
         std::cout << "          out: " << settings.out.toLocal8Bit().constData() << std::endl;
         std::cout << "       run ms: " << run_elapsedms << std::endl;
         std::cout << "   convert ms: " << convert_elapsedms << std::endl;
+        std::cout << "     was slow: " << run_elapsedms > settings.slow_response_ms << std::endl;
         std::cout << "script result: " << script_result.toLocal8Bit().constData() << std::endl;            
         std::cout << "      quality: " << settings.quality << std::endl;
         std::cout << "     quantize: " << settings.quantize_method << std::endl;
@@ -109,7 +115,7 @@ void debug_settings(const Settings& settings, const QString& script_result,
             std::cout << "         crop: " << settings.crop_rect.x() << "," << settings.crop_rect.y()
                       << " " << settings.crop_rect.width() << "x" << settings.crop_rect.height() << std::endl;
         }
-        if ( settings.verbosity > 1 )
+        if ( verbosity > 1 )
         {
             QFileInfo fi(settings.out);
             std::cout << "        bytes: " << fi.size() << std::endl;
@@ -129,7 +135,7 @@ void debug_settings(const Settings& settings, const QString& script_result,
                 std::cout << "         error: " << it->toLocal8Bit().constData() << std::endl;
             }
         }
-        if ( settings.verbosity > 2 )
+        if ( verbosity > 2 )
         {
             QFile fil_read(settings.in);
             fil_read.open(QIODevice::ReadOnly);
