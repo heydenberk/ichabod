@@ -247,7 +247,6 @@ void Engine::loadDone()
     {
         settings.statsd->timing("convert", convert_elapsedms);
     }
-    //debugSettings(elapsedms > settings.slow_response_ms ? 4 : settings.verbosity, success);
 }
 
 void Engine::stop(int exitcode)

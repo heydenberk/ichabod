@@ -23,6 +23,7 @@ Converter::Converter(const Engine* engine, const Settings & s)
     : settings(s)
     , activePage(0)
 {
+    // engine communication to and fro
     connect(engine, SIGNAL(javascriptEnvironment(QWebPage*)), this, SLOT(slotJavascriptEnvironment(QWebPage*)));
     connect(engine, SIGNAL(warning(QString)), this, SLOT(slotJavascriptWarning(QString)));
     connect(engine, SIGNAL(error(QString)), this, SLOT(slotJavascriptError(QString)));
@@ -263,7 +264,7 @@ void Converter::saveToOutput()
 {
     if ( !images.size() )
     {
-        std::cerr << "WARNING: saveToOutput forcing snapshotPage" << std::endl;
+        warningvec.push_back( "saveToOutput forcing snapshotPage" );
         snapshotPage();
     }
     if ( settings.convert_verbosity )
