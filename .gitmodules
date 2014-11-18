@@ -1,9 +1,6 @@
 [submodule "mongoose"]
 	path = mongoose
 	url = https://github.com/cesanta/mongoose.git
-[submodule "wkhtmltopdf"]
-	path = wkhtmltopdf
-	url = https://github.com/monetate/wkhtmltopdf.git
 [submodule "giflib"]
 	path = giflib
 	url = http://git.code.sf.net/p/giflib/code
@@ -13,3 +10,10 @@
 [submodule "statsd-client-cpp"]
 	path = statsd-client-cpp
 	url = https://github.com/moseymosey/statsd-client-cpp
+[submodule "qt"]
+	path = qt
+	url = https://github.com/moseymosey/qt
+	branch = 4.8
+[submodule "netpbm"]
+	path = netpbm
+	url = https://github.com/moseymosey/netpbm.git
