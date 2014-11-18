@@ -85,6 +85,68 @@ static void send_headers(struct mg_connection* conn)
     mg_send_header(conn, "Server", QString("%1 %2").arg(ICHABOD_NAME).arg(ICHABOD_VERSION).toLocal8Bit().constData());
 }
 
+
+void debug_settings(const Settings& settings, const QString& script_result, 
+                    const QVector<QString>& warnings, const QVector<QString>& errors, 
+                    bool success_status, double run_elapsedms, double convert_elapsedms)
+{
+    if ( settings.verbosity )
+    {
+        std::cout << "      success: " << success_status << std::endl;
+        std::cout << "           in: " << settings.in.toLocal8Bit().constData() << std::endl;
+        std::cout << "          out: " << settings.out.toLocal8Bit().constData() << std::endl;
+        std::cout << "       run ms: " << run_elapsedms << std::endl;
+        std::cout << "   convert ms: " << convert_elapsedms << std::endl;
+        std::cout << "script result: " << script_result.toLocal8Bit().constData() << std::endl;            
+        std::cout << "      quality: " << settings.quality << std::endl;
+        std::cout << "     quantize: " << settings.quantize_method << std::endl;
+        std::cout << "          fmt: " << settings.fmt.toLocal8Bit().constData() << std::endl;
+        std::cout << "  transparent: " << settings.transparent << std::endl;
+        std::cout << "  smart width: " << settings.smart_width << std::endl;
+        std::cout << "       screen: " << settings.screen_width << "x" << settings.screen_height << std::endl;
+        if ( settings.crop_rect.isValid() )
+        {
+            std::cout << "         crop: " << settings.crop_rect.x() << "," << settings.crop_rect.y()
+                      << " " << settings.crop_rect.width() << "x" << settings.crop_rect.height() << std::endl;
+        }
+        if ( settings.verbosity > 1 )
+        {
+            QFileInfo fi(settings.out);
+            std::cout << "        bytes: " << fi.size() << std::endl;
+            QImage img(settings.out, settings.fmt.toLocal8Bit().constData());
+            std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
+            //std::cout << "script result: " << scriptResult() << std::endl;
+            for( QVector<QString>::const_iterator it = warnings.begin();
+                 it != warnings.end();
+                 ++it )
+            {
+                std::cout << "       warning: " << it->toLocal8Bit().constData() << std::endl;
+            }
+            for( QVector<QString>::const_iterator it = errors.begin();
+                 it != errors.end();
+                 ++it )
+            {
+                std::cout << "         error: " << it->toLocal8Bit().constData() << std::endl;
+            }
+        }
+        if ( settings.verbosity > 2 )
+        {
+            QFile fil_read(settings.in);
+            fil_read.open(QIODevice::ReadOnly);
+            QByteArray arr = fil_read.readAll();
+            std::cout << "         html: " << arr.data() << std::endl;
+            for( QList<QString>::const_iterator it = settings.run_scripts.begin();
+                 it != settings.run_scripts.end();
+                 ++it )
+            {
+                std::cout << "           js: " << it->toLocal8Bit().constData() << std::endl;
+            }
+            std::cout << "     selector: " << settings.selector.toLocal8Bit().constData() << std::endl;
+            std::cout << "          css: " << settings.css.toLocal8Bit().constData() << std::endl;
+        }
+    }
+}
+
 static int handle_default(struct mg_connection *conn, Settings& settings)
 {
     send_headers(conn);
@@ -105,6 +167,7 @@ static int handle_default(struct mg_connection *conn, Settings& settings)
     double convert_elapsedms = engine.convertTime();
     QVector<QString> warnings = converter.warnings();
     QVector<QString> errors = converter.errors();
+    debug_settings( settings, result, warnings, errors, conversion_success, run_elapsedms, convert_elapsedms );
 
     // create json return
     Json::Value root;

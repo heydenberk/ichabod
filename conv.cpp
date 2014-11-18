@@ -328,66 +328,6 @@ void Converter::saveToOutput()
     emit done(errorvec.size());
 }
 
-void Converter::debugSettings(int verbosity, bool success_status)
-{
-    if ( verbosity )
-    {
-        std::cout << "      success: " << success_status << std::endl;
-        if ( verbosity > 1 )
-        {
-            std::cout << "           in: " << settings.in << std::endl;
-            std::cout << "          out: " << settings.out << std::endl;
-            std::cout << "      quality: " << settings.quality << std::endl;
-            std::cout << "     quantize: " << settings.quantize_method << std::endl;
-            std::cout << "          fmt: " << settings.fmt << std::endl;
-            std::cout << "  transparent: " << settings.transparent << std::endl;
-            std::cout << "  smart width: " << settings.smart_width << std::endl;
-            std::cout << "       screen: " << settings.screen_width << "x" << settings.screen_height << std::endl;
-            if ( settings.crop_rect.isValid() )
-            {
-                std::cout << "         crop: " << settings.crop_rect.x() << "," << settings.crop_rect.y()
-                          << " " << settings.crop_rect.width() << "x" << settings.crop_rect.height() << std::endl;
-            }
-        }
-        if ( verbosity > 2 )
-        {
-            QFileInfo fi(settings.out);
-            std::cout << "        bytes: " << fi.size() << std::endl;
-            QImage img(settings.out, settings.fmt.toLocal8Bit().constData());
-            std::cout << "         size: " << img.size().width() << "x" << img.size().height() << std::endl;
-            //std::cout << "script result: " << scriptResult() << std::endl;
-            for( QVector<QString>::iterator it = warningvec.begin();
-                 it != warningvec.end();
-                 ++it )
-            {
-                std::cout << "       warning: " << *it << std::endl;
-            }
-            for( QVector<QString>::iterator it = errorvec.begin();
-                 it != errorvec.end();
-                 ++it )
-            {
-                std::cout << "         error: " << *it << std::endl;
-            }
-        }
-        if ( verbosity > 3 )
-        {
-            QFile fil_read(settings.in);
-            fil_read.open(QIODevice::ReadOnly);
-            QByteArray arr = fil_read.readAll();
-            std::cout << "         html: " << QString(arr) << std::endl;
-            for( QList<QString>::const_iterator it = settings.run_scripts.begin();
-                 it != settings.run_scripts.end();
-                 ++it )
-            {
-                std::cout << "           js: " << *it << std::endl;
-            }
-            std::cout << "     selector: " << settings.selector << std::endl;
-            std::cout << "          css: " << settings.css << std::endl;
-        }
-    }
-}
-
-
 void Converter::setSelector( const QString& sel )
 {
     settings.selector = sel;

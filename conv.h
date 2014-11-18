@@ -45,7 +45,6 @@ signals:
     void done(int exitcode);
 
 private:
-    void debugSettings(int verbosity, bool success_status);
     Settings settings;
     QWebPage* activePage;
     QVector<QImage> images;
