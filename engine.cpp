@@ -140,8 +140,8 @@ Engine::Engine(const Settings& s)
       convert_elapsedms(0.0)
 {
 
-    // forward all interesting activity as signals for the converter
-    // to pick up on
+    // forward all interesting activity as signals for others to pick
+    // up on
 
     web_page = new WebPage();
     net_access = new NetAccess(s);
@@ -170,7 +170,8 @@ Engine::~Engine()
     delete net_access;
 }
 
-void Engine::netSslErrors(QNetworkReply *reply, const QList<QSslError> &) {
+void Engine::netSslErrors(QNetworkReply *reply, const QList<QSslError> &) 
+{
     // ignore all
     reply->ignoreSslErrors();
     emit warning("SSL error ignored");
@@ -193,6 +194,10 @@ void Engine::netFinished(QNetworkReply * reply)
 
 void Engine::webPageLoadStarted()
 {
+    if ( settings.engine_verbosity )
+    {
+        std::cout << "engine: webPageLoadStarted" << std::endl;
+    }
 }
 
 void Engine::webPageLoadFinished(bool b)
@@ -381,17 +386,4 @@ bool Engine::run()
     run_elapsedms = (diff / 1000 + (diff % 1000 >= 500) /*round up halves*/) / 1000.0; 
 
     return !run_code;
-}
-
-void Engine::setWebSettings(QWebSettings * ws)
-{
-    //ws->setPrintingMediaType("screen");
-    ws->setAttribute(QWebSettings::JavaEnabled, true);
-    ws->setAttribute(QWebSettings::JavascriptEnabled, true);
-    ws->setAttribute(QWebSettings::JavascriptCanOpenWindows, false);
-    ws->setAttribute(QWebSettings::JavascriptCanAccessClipboard, false);
-    ws->setFontSize(QWebSettings::MinimumFontSize, settings.min_font_size);
-    ws->setAttribute(QWebSettings::PrintElementBackgrounds, true);
-    ws->setAttribute(QWebSettings::AutoLoadImages, true);
-    ws->setAttribute(QWebSettings::PluginsEnabled, false);
 }

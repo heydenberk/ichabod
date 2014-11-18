@@ -113,7 +113,6 @@ private slots:
 
 private:
     void loadDone();
-    void setWebSettings(QWebSettings * ws);
     WebPage* web_page;    
     Settings settings;
     NetAccess* net_access;
