@@ -102,7 +102,7 @@ void debug_settings(const Settings& settings, const QString& script_result,
         std::cout << "          out: " << settings.out.toLocal8Bit().constData() << std::endl;
         std::cout << "       run ms: " << run_elapsedms << std::endl;
         std::cout << "   convert ms: " << convert_elapsedms << std::endl;
-        std::cout << "     was slow: " << run_elapsedms > settings.slow_response_ms << std::endl;
+        std::cout << "     was slow: " << (run_elapsedms > settings.slow_response_ms) << std::endl;
         std::cout << "script result: " << script_result.toLocal8Bit().constData() << std::endl;            
         std::cout << "      quality: " << settings.quality << std::endl;
         std::cout << "     quantize: " << settings.quantize_method << std::endl;
